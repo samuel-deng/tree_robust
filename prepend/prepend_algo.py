@@ -52,7 +52,6 @@ def prepend_algo(X, y, model, loss, groups, params={}, transformer=None, verbose
             gp_cond_errs.append(loss(h.predict(sorted_X[g]), sorted_y[g]))
 
     # Calculate the argmin L(f|g) for each group g.
-    # TODO: the error is in this loop, because sorted_X[g] is already filtered??
     dec_list_errs = np.empty(len(groups))
     for g in range(len(groups)):
         dec_list_errs[g] = loss(dec_list.predict(sorted_X[g]), sorted_y[g])
@@ -81,10 +80,8 @@ def prepend_algo(X, y, model, loss, groups, params={}, transformer=None, verbose
         else:            
             return dec_list
         
-        # Keeping track of errors L(f|g) for each group g.
-        t += 1
-
         # Stopping conditions
+        t += 1
         if t > max_iter:
             break
 
