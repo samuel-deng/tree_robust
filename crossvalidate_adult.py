@@ -116,9 +116,8 @@ for g in range(num_groups):
 for i in range(num_groups):
     print('P(Y=1 | group {0}) = {1}'.format(i, np.mean(y_test[group_test[i]])))
 
-
 # Cross-validation for GradientBoostingClassifier and XGB
-from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.ensemble import GradientBoostingClassifier, AdaBoostClassifier
 from xgboost import XGBClassifier
 
 # Hyperparameter sweep for gradient-boosted trees
@@ -156,6 +155,23 @@ with open('adult_trees_params/best_xgb_params_avg.pkl', 'wb') as handle:
     pickle.dump(best_xgb_params_avg, handle, protocol=pickle.HIGHEST_PROTOCOL)
 with open('adult_trees_params/best_xgb_params_worstgp.pkl', 'wb') as handle:
     pickle.dump(best_xgb_params_worstgp, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+# Hyperparameter sweep for AdaBoost
+ada_grid = {
+    'learning_rate': [0.01, 0.1, 0.5, 1.0],
+    'random_state': [0]
+}
+
+best_ada_params_avg, best_ada_params_worstgp = cross_validate(X, y, col_transf, group_memberships, num_groups, 
+                                                            AdaBoostClassifier, ada_grid)
+print(best_ada_params_avg)
+print(best_ada_params_worstgp)
+
+# Save to pickle files
+with open('adult_trees_params/best_ada_params_avg.pkl', 'wb') as handle:
+    pickle.dump(best_ada_params_avg, handle, protocol=pickle.HIGHEST_PROTOCOL)
+with open('adult_trees_params/best_ada_params_worstgp.pkl', 'wb') as handle:
+    pickle.dump(best_ada_params_worstgp, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 '''
 n_estimators_params = [8, 16, 32, 64, 128, 256, 512]

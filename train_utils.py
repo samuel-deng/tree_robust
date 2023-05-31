@@ -54,9 +54,9 @@ def cross_validate(X, y, transformer, group_memberships, num_groups, model, grid
     print("Fitting {} models...".format(len(param_grid)))
     for params in param_grid:
         params['n_estimators'] = n_estimators
-        gb_model = model(**params)
+        param_model = model(**params)
         start = time.time()
-        mean_test_errs, _ = paralell_split_eval(X, y, gb_model, transformer, group_memberships, num_groups, 
+        mean_test_errs, _ = paralell_split_eval(X, y, param_model, transformer, group_memberships, num_groups, 
                                                 train_size=train_size, n_splits=n_splits, n_jobs=n_jobs)
         end = time.time()
         print("Cross-validated {} ({}) in {} seconds.".format(model, params, end - start))
