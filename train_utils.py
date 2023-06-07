@@ -1,4 +1,4 @@
-from sklearn.model_selection import train_test_split, ParameterGrid
+from sklearn.model_selection import train_test_split, ParameterGrid, cross_val_score
 from joblib import Parallel, delayed
 import numpy as np
 import time
@@ -74,3 +74,38 @@ def cross_validate(X, y, transformer, group_memberships, num_groups, model, grid
             best_params_worstgp = params.copy()
 
     return best_params_avg, best_params_worstgp
+
+'''
+For a fixed model class, find the best hyperparameters for the model trained on
+ONLY samples from each group. This gives |G| different sets of hyperparameters.
+'''
+def cross_val_group_helper(X, y, transformer, model, params, n_splits):
+    clf = model(**params)
+    scores = cross_val_score(clf, transformer.transform(X), y, cv=n_splits)
+    return (scores.mean(), params)
+
+def cross_validate_pergroup(X, y, transformer, group_memberships, num_groups,
+                            model, grid, n_splits=3, n_jobs=8):
+    param_grid = list(ParameterGrid(grid))
+    best_params_pergroup = {}
+    for g in range(num_groups):
+        print("Fitting {} models to group {}...".format(len(param_grid), g))
+        start = time.time()
+        X_g = X[group_memberships[g]]
+        y_g = y[group_memberships[g]]
+        parallel = Parallel(n_jobs=n_jobs)
+        # results will have len(param_grid) tuples of (score, params)
+        results = parallel(
+            delayed(cross_val_group_helper)(X_g, y_g, transformer, 
+                                            model, params, n_splits)
+            for params in param_grid
+        )
+        end = time.time()
+        print("Took {} seconds for group {}.".format(end - start, g))
+
+        # find best parameter for group g
+        scores = np.array([score for score, _ in results])
+        best_params_pergroup[g] = results[np.argmax(scores)][1]
+        print("best params for G{}: {}".format(g, best_params_pergroup[g]))
+
+    return best_params_pergroup
