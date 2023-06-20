@@ -120,7 +120,7 @@ for i in range(num_groups):
 
 import argparse
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.ensemble import GradientBoostingClassifier, AdaBoostClassifier
+from sklearn.ensemble import GradientBoostingClassifier, AdaBoostClassifier, RandomForestClassifier
 from xgboost import XGBClassifier
 from train_utils import cross_validate_pergroup
 if __name__ == "__main__":
@@ -131,14 +131,15 @@ if __name__ == "__main__":
     parser.add_argument('--gbm', help='cross-validate GradientBoostingClassifier.', action='store_true')
     parser.add_argument('--xgb', help='cross-validate XGBoostClassifier', action='store_true')
     parser.add_argument('--ada', help='cross-validate AdaBoost', action='store_true')
+    parser.add_argument('--rf', help='cross-validate RandomForest', action='store_true')
     args = parser.parse_args()
+    SAVE_DATA_PATH = 'adult_agreement_data/'
 
     '''
     CROSS-VALIDATION FOR DECISION TREES
     Cross-validate the best decision tree per group.
     '''
     if args.dec_tree:
-        SAVE_DATA_PATH = 'adult_agreement_data/'
         best_params_path = os.path.join(SAVE_DATA_PATH, 'dectree_params.pkl')
 
         param_grid = {
@@ -159,7 +160,6 @@ if __name__ == "__main__":
     Cross-validate the best gradient-boosted trees per group.
     '''
     if args.gbm:
-        SAVE_DATA_PATH = 'adult_agreement_data/'
         best_params_path = os.path.join(SAVE_DATA_PATH, 'gbm_params.pkl')
 
         param_grid = {
@@ -178,7 +178,6 @@ if __name__ == "__main__":
     Cross-validate the best XGBoost classifier per group.
     '''
     if args.xgb:
-        SAVE_DATA_PATH = 'adult_agreement_data/'
         best_params_path = os.path.join(SAVE_DATA_PATH, 'xgb_params.pkl')
 
         param_grid = {
@@ -197,7 +196,6 @@ if __name__ == "__main__":
     Cross-validate the best AdaBoost classifier per group.
     '''
     if args.ada:
-        SAVE_DATA_PATH = 'adult_agreement_data/'
         best_params_path = os.path.join(SAVE_DATA_PATH, 'ada_params.pkl')
 
         param_grid = {
@@ -207,5 +205,24 @@ if __name__ == "__main__":
         best_params_pergroup = cross_validate_pergroup(X_train, y_train, col_transf, 
                                                         group_train, num_groups, 
                                                         AdaBoostClassifier, param_grid)
+        with open(best_params_path, 'wb') as handle:
+            pickle.dump(best_params_pergroup, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+    '''
+    CROSS-VALIDATION FOR RANDOM FOREST CLASSIFIER
+    Cross-validate the best RandomForestClassifier per group.
+    '''
+    if args.rf:
+        best_params_path = os.path.join(SAVE_DATA_PATH, 'rf_params.pkl')
+
+        param_grid = {
+            'min_samples_split': [2, 4, 8, 16],
+            'min_samples_leaf': [1, 2, 4, 8, 16],
+            'ccp_alpha': [0, 0.001, 0.01, 0.1],
+            'random_state': [0]
+        }
+        best_params_pergroup = cross_validate_pergroup(X_train, y_train, col_transf, 
+                                                        group_train, num_groups, 
+                                                        RandomForestClassifier, param_grid)
         with open(best_params_path, 'wb') as handle:
             pickle.dump(best_params_pergroup, handle, protocol=pickle.HIGHEST_PROTOCOL)
