@@ -94,6 +94,7 @@ if __name__ == "__main__":
     parser.add_argument('--gbm', help='cross-validate GradientBoostingClassifier.', action='store_true')
     parser.add_argument('--xgb', help='cross-validate XGBoostClassifier', action='store_true')
     parser.add_argument('--ada', help='cross-validate AdaBoost', action='store_true')
+    parser.add_argument('--rf', help='cross-validate RandomForest', action='store_true')
     args = parser.parse_args()
 
     '''
