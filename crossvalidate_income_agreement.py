@@ -179,7 +179,6 @@ if __name__ == "__main__":
         best_params_path = os.path.join(SAVE_DATA_PATH, 'rf_params.pkl')
 
         param_grid = {
-            'num_estimators': [64, 100, 128, 256],
             'min_samples_split': [2, 4, 8, 16],
             'min_samples_leaf': [1, 2, 4, 8, 16],
             'ccp_alpha': [0, 0.001, 0.01, 0.1],
