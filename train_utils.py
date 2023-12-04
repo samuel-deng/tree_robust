@@ -93,7 +93,7 @@ def cross_validate_pergroup(X, y, transformer, group_memberships, num_groups,
         start = time.time()
         X_g = X[group_memberships[g]]
         y_g = y[group_memberships[g]]
-        parallel = Parallel(n_jobs=n_jobs)
+        parallel = Parallel(n_jobs=-1)
         # results will have len(param_grid) tuples of (score, params)
         results = parallel(
             delayed(cross_val_group_helper)(X_g, y_g, transformer, 

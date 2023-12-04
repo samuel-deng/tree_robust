@@ -10,7 +10,7 @@ def months_since(date_str, year=2013, month=1):
     return (date.year - year) * 12 + (date.month - month)
 
 
-def preprocess_compas(df: pd.DataFrame) -> pd.DataFrame:
+def preprocess_compas_df(df: pd.DataFrame) -> pd.DataFrame:
     """Preprocess COMPAS dataset.
 
     See https://github.com/RuntianZ/doro/blob/master/compas.py .
