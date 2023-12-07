@@ -1,12 +1,31 @@
 import pandas as pd
 import numpy as np
+import itertools
 
-from sklearn.preprocessing import LabelEncoder, OneHotEncoder, MinMaxScaler
-from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder, OneHotEncoder, StandardScaler
 from sklearn.compose import ColumnTransformer
 
 from compas_utils import preprocess_compas_df
 from folktables import ACSDataSource, ACSEmployment, ACSIncome
+
+class Dataset:
+    """
+    Dataset object for handling the different datasets.
+    Variables:
+        X: Features for the dataset (ColumnTransformer applied).
+        y: Labels (all binary) for the data.
+        groups: Binary-valued arrays for group membership. Only includes original groups, not their intersections.
+        intersections: Tuples of indices for group intersections (e.g. (1, 9)).
+        group_names: List of all group names for the dataset (e.g. "W" or "Y")
+        inter_names: List of all intersection names for the dataset (e.g. "(W, M)").
+    """
+    def __init__(self, X, y, groups, intersections, group_names, inter_names):
+        self.X = X
+        self.y = y
+        self.groups = groups
+        self.intersections = intersections
+        self.group_names = group_names
+        self.inter_names = inter_names
 
 def adult_gp_indices(df, race_val, sex_val):
     if race_val == "NotWhite":
@@ -118,9 +137,7 @@ def gen_group_pairs(num_groups, folktables=False):
 def preprocess_adult(train_path='datasets/adult/adult.data',
                      test_path='datasets/adult/adult.test'):
     adult_names = ["age", "workclass", "fnlwgt", "education", "education-num",
-                    "marital-status", "occupation", "relationship", "race", "sex",
-                    "capital-gain", "capital-loss", "hours-per-week", "native-country", 
-                    "income"]
+                    "marital-status", "occupation", "relationship", "race","sex", "capital-gain", "capital-loss", "hours-per-week", "native-country", "income"]
     adult_data = pd.read_csv(train_path, header=None, 
                             names=adult_names, na_values=' ?')
     adult_data = adult_data.apply(lambda x: x.str.strip() if x.dtype == "object" else x) # strip whitespace
@@ -142,53 +159,60 @@ def preprocess_adult(train_path='datasets/adult/adult.data',
     # Select categorical and numerical features
     cat_idx = X.select_dtypes(include=["object", "bool"]).columns
     num_idx = X.select_dtypes(include=['int64', 'float64']).columns
-    steps = [('cat', OneHotEncoder(handle_unknown='ignore'), cat_idx), ('num', MinMaxScaler(), num_idx)]
+    steps = [('cat', OneHotEncoder(handle_unknown='ignore'), cat_idx), ('num', StandardScaler(), num_idx)]
     col_transf = ColumnTransformer(steps)
 
     # label encoder to target variable so we have classes 0 and 1
     assert(len(np.unique(y)) == 2)
     y = LabelEncoder().fit_transform(y)
-    print("% examples >=50k (y=1): {}".format(100 * len(np.where(y == 1)[0])/len(y)))
-    print("% examples <50k (y=0): {}".format(100 * len(np.where(y == 0)[0])/len(y)))
 
-    group_names = ["ALL", "W,M", "W,F", "nW,M", "nW,F", "W", "nW", "M", "F"]
-    group_memberships = []
-    group_memberships.append([True] * y.shape[0])
+    group_names = ["ALL", "W", "nW", "M", "F"]
+    inter_names = ["(W,M)", "(W,F)", "(nW,M)", "(nW,F)"]
+    groups = []
+    intersections = []
+    groups.append([True] * y.shape[0])
     race_gps_coarse = ["White", "NotWhite"]
     sex_gps = ["Male", "Female"]
 
-    # Traditional disjoint groups
-    for race in race_gps_coarse:
-        for sex in sex_gps:
-            indices = adult_gp_indices(X, race, sex)[0]
-            membership = np.zeros(y.shape[0], dtype=bool)
-            membership[indices] = True
-            group_memberships.append(membership)
-
-    # Add 4 overlapping groups
+    # Overlapping groups
     w_indices = np.where(X['race'] == 'White')
     w_membership = np.zeros(y.shape[0], dtype=bool)
     w_membership[w_indices] = True
-    group_memberships.append(w_membership)
+    groups.append(w_membership)
 
     nw_indices = np.where(X['race'] != 'White')
     nw_membership = np.zeros(y.shape[0], dtype=bool)
     nw_membership[nw_indices] = True
-    group_memberships.append(nw_membership)
+    groups.append(nw_membership)
 
     m_indices = np.where(X['sex'] == 'Male')
     m_membership = np.zeros(y.shape[0], dtype=bool)
     m_membership[m_indices] = True
-    group_memberships.append(m_membership)
+    groups.append(m_membership)
 
     f_indices = np.where(X['sex'] == 'Female')
     f_membership = np.zeros(y.shape[0], dtype=bool)
     f_membership[f_indices] = True
-    group_memberships.append(f_membership)
+    groups.append(f_membership)
+
+    # Intersections of groups
+    race_indices = [1, 2]
+    sex_indices = [3, 4]
+    intersections = list(itertools.product(race_indices, sex_indices))
+
+    """
+    for race in race_gps_coarse:
+    for sex in sex_gps:
+        indices = adult_gp_indices(X, race, sex)[0]
+        membership = np.zeros(y.shape[0], dtype=bool)
+        membership[indices] = True
+        intersections.append(membership)
+    """
 
     # Fit the ColumnTransformer to X
-    X_transf = col_transf.fit_transform(X)
-    return X, y, col_transf, group_memberships
+    X = col_transf.fit_transform(X)
+    dataset = Dataset(X, y, groups, intersections, group_names, inter_names)
+    return dataset
 
 def preprocess_communities(train_path='datasets/communities-and-crime/attributes.csv', test_path='datasets/communities-and-crime/communities.data'):
     # Communities & Crime Dataset
@@ -219,121 +243,105 @@ def preprocess_communities(train_path='datasets/communities-and-crime/attributes
     X, y = data.drop("target", axis=1), data["target"]
     cat_idx = X.select_dtypes(include=["object", "bool"]).columns
     num_idx = X.select_dtypes(include=['int64', 'float64']).columns
-    steps = [('cat', OneHotEncoder(handle_unknown='ignore'), cat_idx), ('num', MinMaxScaler(), num_idx)]
+    steps = [('cat', OneHotEncoder(handle_unknown='ignore'), cat_idx), ('num', StandardScaler(), num_idx)]
     col_transf = ColumnTransformer(steps)
 
     # label encoder to target variale so we have two classes 0 and 1
     assert(len(np.unique(y)) == 2)
     y = LabelEncoder().fit_transform(y)
-    print("% examples (y=1): {}".format(100 * len(np.where(y == 1)[0])/len(y)))
-    print("% examples (y=0): {}".format(100 * len(np.where(y == 0)[0])/len(y)))
 
-    print("Communities and Crime Shape: {}".format(data.shape))
-
-    group_names = ["ALL", "W,H", "W,L", "nW,H", "nW,L", "W", "nW", "H", "L"]
-    group_memberships = []
-    group_memberships.append([True] * y.shape[0])
+    group_names = ["ALL", "W", "nW", "H", "L"]
+    inter_names = ["(W,H)", "(W,L)", "(nW,H)", "(nW,L)"]
+    groups = []
+    intersections = []
+    groups.append([True] * y.shape[0])
     race_gps_coarse = ["White", "NotWhite"]
     income_gps = [1, 0]
 
-    # Traditional disjoint groups
-    for race in race_gps_coarse:
-        for income in income_gps:
-            indices = communities_gp_indices(X, race, income)[0]
-            membership = np.zeros(y.shape[0], dtype=bool)
-            membership[indices] = True
-            group_memberships.append(membership)
-
-    # Add 4 overlapping groups
+    # Groups
     w_indices = np.where(X['race'] == 1)
     w_membership = np.zeros(y.shape[0], dtype=bool)
     w_membership[w_indices] = True
-    group_memberships.append(w_membership)
+    groups.append(w_membership)
 
     nw_indices = np.where(X['race'] == 0)
     nw_membership = np.zeros(y.shape[0], dtype=bool)
     nw_membership[nw_indices] = True
-    group_memberships.append(nw_membership)
+    groups.append(nw_membership)
 
     m_indices = np.where(X['income_level'] == 1)
     m_membership = np.zeros(y.shape[0], dtype=bool)
     m_membership[m_indices] = True
-    group_memberships.append(m_membership)
+    groups.append(m_membership)
 
     f_indices = np.where(X['income_level'] == 0)
     f_membership = np.zeros(y.shape[0], dtype=bool)
     f_membership[f_indices] = True
-    group_memberships.append(f_membership)
+    groups.append(f_membership)
 
-    num_groups = len(group_memberships)
-    print('num_groups = {0}'.format(num_groups))
+    # Group Intersections
+    race_indices = [1, 2]
+    income_indices = [3, 4]
+    intersections = list(itertools.product(race_indices, income_indices))
 
     # Fit the ColumnTransformer to X
-    X_transf = col_transf.fit_transform(X)
-    print("Column-transformed X has shape: {}".format(X_transf.shape))
-
-    return X, y, col_transf, group_memberships
+    X = col_transf.fit_transform(X)
+    dataset = Dataset(X, y, groups, intersections, group_names, inter_names)
+    return dataset
 
 def preprocess_compas(train_path='datasets/compas/compas.csv'):
     # COMPAS Dataset
     compas_data = pd.read_csv(train_path, header=0, na_values='?')
     compas_df = preprocess_compas_df(compas_data)
     compas_df = compas_df.dropna()
-    print("COMPAS Shape: {}".format(compas_df.shape))
 
     X, y = compas_df.drop("is_recid", axis=1), compas_df["is_recid"]
     cat_idx = ['c_charge_degree', 'sex', 'race', 'screening_year_is_2013']
     num_idx = ['juv_fel_count', 'juv_misd_count', 'juv_other_count', 'priors_count', 'age']
-    steps = [('cat', OneHotEncoder(handle_unknown='ignore'), cat_idx), ('num', MinMaxScaler(), num_idx)]
+    steps = [('cat', OneHotEncoder(handle_unknown='ignore'), cat_idx), ('num', StandardScaler(), num_idx)]
     col_transf = ColumnTransformer(steps)
 
     # label encoder to target variale so we have two classes 0 and 1
     assert(len(np.unique(y)) == 2)
     y = LabelEncoder().fit_transform(y)
-    print("% examples recidivate (y=1): {}".format(100 * len(np.where(y == 1)[0])/len(y)))
-    print("% examples NOT recidivate (y=0): {}".format(100 * len(np.where(y == 0)[0])/len(y)))
 
-    group_names = ["ALL", "W,M", "W,F", "nW,M", "nW,F", "W", "nW", "M", "F"]
-    group_memberships = []
-    group_memberships.append([True] * y.shape[0])
+    group_names = ["ALL", "W", "nW", "M", "F"]
+    inter_names = ["(W,M)", "(W,F)", "(nW,M)", "(nW,F)"]
+    groups = []
+    groups.append([True] * y.shape[0])
     race_gps_coarse = ["White", "NotWhite"]
     sex_gps = [1, 0]
-
-    # Traditional disjoint groups
-    for race in race_gps_coarse:
-        for sex in sex_gps:
-            indices = compas_gp_indices(X, race, sex)[0]
-            membership = np.zeros(y.shape[0], dtype=bool)
-            membership[indices] = True
-            group_memberships.append(membership)
 
     # Add 4 overlapping groups
     w_indices = np.where(X['race'] == 1)
     w_membership = np.zeros(y.shape[0], dtype=bool)
     w_membership[w_indices] = True
-    group_memberships.append(w_membership)
+    groups.append(w_membership)
 
     nw_indices = np.where(X['race'] != 1)
     nw_membership = np.zeros(y.shape[0], dtype=bool)
     nw_membership[nw_indices] = True
-    group_memberships.append(nw_membership)
+    groups.append(nw_membership)
 
     m_indices = np.where(X['sex'] == 1)
     m_membership = np.zeros(y.shape[0], dtype=bool)
     m_membership[m_indices] = True
-    group_memberships.append(m_membership)
+    groups.append(m_membership)
 
     f_indices = np.where(X['sex'] == 0)
     f_membership = np.zeros(y.shape[0], dtype=bool)
     f_membership[f_indices] = True
-    group_memberships.append(f_membership)
+    groups.append(f_membership)
 
-    num_groups = len(group_memberships)
-    print('num_groups = {0}'.format(num_groups))
+    # Group Intersections
+    race_indices = [1, 2]
+    sex_indices = [3, 4]
+    intersections = list(itertools.product(race_indices, sex_indices))
 
     # Fit the ColumnTransformer to X
-    X_transf = col_transf.fit_transform(X)
-    return X, y, col_transf, group_memberships
+    X = col_transf.fit_transform(X)
+    dataset = Dataset(X, y, groups, intersections, group_names, inter_names)
+    return dataset
 
 def preprocess_german(train_path='datasets/german/german.data'):
     df = pd.read_csv(train_path, sep=" ", header=None)
@@ -377,59 +385,51 @@ def preprocess_german(train_path='datasets/german/german.data'):
     X, y = df.drop("target", axis=1), df["target"]
     cat_idx = X.select_dtypes(include=["object", "bool", "category"]).columns
     num_idx = X.select_dtypes(include=['int64', 'float64']).columns
-    steps = [('cat', OneHotEncoder(handle_unknown='ignore'), cat_idx), ('num', MinMaxScaler(), num_idx)]
+    steps = [('cat', OneHotEncoder(handle_unknown='ignore'), cat_idx), ('num', StandardScaler(), num_idx)]
     col_transf = ColumnTransformer(steps)
 
     # label encoder to target variale so we have two classes 0 and 1
     assert(len(np.unique(y)) == 2)
     y = LabelEncoder().fit_transform(y)
-    print("% examples (y=1): {}".format(100 * len(np.where(y == 1)[0])/len(y)))
-    print("% examples (y=0): {}".format(100 * len(np.where(y == 0)[0])/len(y)))
 
-    print("German Credit Shape: {}".format(df.shape))
-
-    group_names = ["ALL", "M,O", "F,Y", "M,O", "F,Y", "M", "F", "O", "Y"]
-    group_memberships = []
-    group_memberships.append([True] * y.shape[0])
-    race_gps_coarse = ["Male", "Female"]
+    group_names = ["ALL", "M", "F", "O", "Y"]
+    inter_names = ["(M,O)", "(M,Y)", "(F,O)", "(F,Y)"]
+    groups = []
+    intersections = []
+    groups.append([True] * y.shape[0])
+    sex_gps = ["Male", "Female"]
     age_gps = [1, 0]
 
-    # Traditional disjoint groups
-    for race in race_gps_coarse:
-        for age in age_gps:
-            indices = german_gp_indices(X, race, age)[0]
-            membership = np.zeros(y.shape[0], dtype=bool)
-            membership[indices] = True
-            group_memberships.append(membership)
-
-    # Add 4 overlapping groups
+    # Groups
     w_indices = np.where(X['sex'] == 1)
     w_membership = np.zeros(y.shape[0], dtype=bool)
     w_membership[w_indices] = True
-    group_memberships.append(w_membership)
+    groups.append(w_membership)
 
     nw_indices = np.where(X['sex'] == 0)
     nw_membership = np.zeros(y.shape[0], dtype=bool)
     nw_membership[nw_indices] = True
-    group_memberships.append(nw_membership)
+    groups.append(nw_membership)
 
     m_indices = np.where(X['age'] == 1)
     m_membership = np.zeros(y.shape[0], dtype=bool)
     m_membership[m_indices] = True
-    group_memberships.append(m_membership)
+    groups.append(m_membership)
 
     f_indices = np.where(X['age'] == 0)
     f_membership = np.zeros(y.shape[0], dtype=bool)
     f_membership[f_indices] = True
-    group_memberships.append(f_membership)
+    groups.append(f_membership)
 
-    num_groups = len(group_memberships)
-    print('num_groups = {0}'.format(num_groups))
+    # Group Intersections
+    sex_indices = [1, 2]
+    age_indices = [3, 4]
+    intersections = list(itertools.product(sex_indices, age_indices))
 
     # Fit the ColumnTransformer to X
-    X_transf = col_transf.fit_transform(X)
-    print("Column-transformed X has shape: {}".format(X_transf.shape))
-    return X, y, col_transf, group_memberships
+    X = col_transf.fit_transform(X)
+    dataset = Dataset(X, y, groups, intersections, group_names, inter_names)
+    return dataset
 
 def preprocess_employment(year='2016', horizon='1-Year', states=["CA"]):
     data_source = ACSDataSource(survey_year=year, horizon=horizon, survey='person')
@@ -439,57 +439,75 @@ def preprocess_employment(year='2016', horizon='1-Year', states=["CA"]):
     old = (X[:,0] > 65)
 
     # 12 groups (including ALL)
-    group_memberships = []
-    group_memberships.append([True] * y.shape[0]) # index: 0
+    groups = []
+    group_names = ["ALL", "R1", "R2", "R3", "R6", "R7", "R8", "R9", 
+                    "M", "F", "Y", "O"]
+    groups.append([True] * y.shape[0]) # index: 0
     for g in np.unique(group): # indices: 1 -> 7
         if g == 4 or g == 5: # group is too small
             continue
-        group_memberships.append(group == g)
-    group_memberships.append(sex == 1) # index: 8
-    group_memberships.append(sex == 2) # index: 9
-    group_memberships.append(old == False) # index: 10
-    group_memberships.append(old == True) # index: 11
-    num_groups = len(group_memberships)
-    print('num_groups = {0}'.format(num_groups))
+        groups.append(group == g)
+    groups.append(sex == 1) # index: 8
+    groups.append(sex == 2) # index: 9
+    groups.append(old == False) # index: 10
+    groups.append(old == True) # index: 11
 
     # Additional groups for pair-wise intersections
-    group_members_all = group_memberships.copy()
+    intersections = []
+    inter_names = []
 
-    # Race-Sex Intersections
-    # indices: 12 -> 25
     for r in range(1, 8):
-        group_members_all.append(group_memberships[r] & group_memberships[8])
-        group_members_all.append(group_memberships[r] & group_memberships[9])
+        inter_names.append("({},{})".format(group_names[r], "M"))
+        intersections.append((r, 8))
+        inter_names.append("({},{})".format(group_names[r], "F"))
+        intersections.append((r, 9))
+
+    for r in range(1, 8):
+        inter_names.append("({},{})".format(group_names[r], "Y"))
+        intersections.append((r, 10))
+        inter_names.append("({},{})".format(group_names[r], "O"))
+        intersections.append((r, 11))
+
+    for s in range(8, 10):
+        for a in range(10, 12):
+            inter_names.append("({},{})".format(
+                group_names[s], group_names[a]))
+            intersections.append((s, a))
+
+    """
+    # Race-Sex Intersections
+    for r in range(1, 8):
+        inter_names.append("({},{})".format(group_names[r], "M"))
+        intersections.append(groups[r] & groups[8])
+        inter_names.append("({},{})".format(group_names[r], "F"))
+        intersections.append(groups[r] & groups[9])
     
     # Race-Age Intersections
-    # indices: 26 -> 39
     for r in range(1, 8):
-        group_members_all.append(group_memberships[r] & group_memberships[10])
-        group_members_all.append(group_memberships[r] & group_memberships[11])
+        inter_names.append("({},{})".format(group_names[r], "Y"))
+        intersections.append(groups[r] & groups[10])
+        inter_names.append("({},{})".format(group_names[r], "O"))
+        intersections.append(groups[r] & groups[11])
 
     # Sex-Age Intersections
-    group_members_all.append(group_memberships[8] & group_memberships[10]) # 40
-    group_members_all.append(group_memberships[8] & group_memberships[11]) # 41
-    group_members_all.append(group_memberships[9] & group_memberships[10]) # 42
-    group_members_all.append(group_memberships[9] & group_memberships[11]) # 43
+    for s in range(8, 10):
+        for a in range(10, 12):
+            inter_names.append("({},{})".format(
+                group_names[s], group_names[a]))
+            intersections.append(groups[s] & groups[a])
+    """
 
-    # Sex-Age-Race Intersections
-    for r in range(1, 8):
-        group_members_all.append(group_memberships[r] & group_members_all[40])
-        group_members_all.append(group_memberships[r] & group_members_all[41])
-        group_members_all.append(group_memberships[r] & group_members_all[42])
-        group_members_all.append(group_memberships[r] & group_members_all[43])
 
     to_one_hot = set(['MAR', 'RELP', 'ESP', 'CIT', 'MIG', 'MIL', 'ANC', 'DREM', 'RAC1P'])
     to_leave_alone = set(ACSEmployment.features) - to_one_hot
     one_hot_inds = [i for i, x in enumerate(ACSEmployment.features) if x in to_one_hot]
     leave_alone_inds = [i for i, x in enumerate(ACSEmployment.features) if x in to_leave_alone]
 
-    steps = [('onehot', OneHotEncoder(handle_unknown='ignore'), one_hot_inds), ('num', MinMaxScaler(), leave_alone_inds)]
+    steps = [('onehot', OneHotEncoder(handle_unknown='ignore'), one_hot_inds), ('num', StandardScaler(), leave_alone_inds)]
     col_transf = ColumnTransformer(steps)
-    X_transf = col_transf.fit_transform(X).toarray()
-    print("Column-transformed X has shape: {}".format(X_transf.shape))
-    return X, y, col_transf, group_memberships, group_members_all
+    X = col_transf.fit_transform(X).toarray()
+    dataset = Dataset(X, y, groups, intersections, group_names, inter_names)
+    return dataset
 
 def preprocess_income(year='2016', horizon='1-Year', states=["CA"]):
     data_source = ACSDataSource(survey_year=year, horizon=horizon, survey='person')
@@ -497,64 +515,71 @@ def preprocess_income(year='2016', horizon='1-Year', states=["CA"]):
     X, y, group = ACSIncome.df_to_numpy(acs_data)
     sex = X[:, -2]
     old = (X[:,0] > 65)
-    print("ACS Income Features: {}".format(ACSIncome.features))
-    print("ACS Income Shape {}".format(X.shape))
 
-    group_names = []
-    group_memberships = []
-    group_memberships.append([True] * y.shape[0])
-    group_names.append('ALL')
-    for g in np.unique(group):
+    # 12 groups (including ALL)
+    groups = []
+    group_names = ["ALL", "R1", "R2", "R3", "R6", "R7", "R8", "R9", 
+                    "M", "F", "Y", "O"]
+    groups.append([True] * y.shape[0]) # index: 0
+    for g in np.unique(group): # indices: 1 -> 7
         if g == 4 or g == 5: # group is too small
             continue
-        group_memberships.append(group == g)
-        group_names.append('R{0}'.format(g))
-    group_memberships.append(sex == 1)
-    group_names.append('S1')
-    group_memberships.append(sex == 2)
-    group_names.append('S2')
-    group_memberships.append(old == False)
-    group_names.append('A1')
-    group_memberships.append(old == True)
-    group_names.append('A2')
-    num_groups = len(group_memberships)
-    print('num_groups = {0}'.format(num_groups))
+        groups.append(group == g)
+    groups.append(sex == 1) # index: 8
+    groups.append(sex == 2) # index: 9
+    groups.append(old == False) # index: 10
+    groups.append(old == True) # index: 11
 
     # Additional groups for pair-wise intersections
-    group_members_all = group_memberships.copy()
+    intersections = []
+    inter_names = []
 
     # Race-Sex Intersections
-    # indices: 12 -> 25
     for r in range(1, 8):
-        group_members_all.append(group_memberships[r] & group_memberships[8])
-        group_members_all.append(group_memberships[r] & group_memberships[9])
-    
-    # Race-Age Intersections
-    # indices: 26 -> 39
-    for r in range(1, 8):
-        group_members_all.append(group_memberships[r] & group_memberships[10])
-        group_members_all.append(group_memberships[r] & group_memberships[11])
+        inter_names.append("({},{})".format(group_names[r], "M"))
+        intersections.append((r, 8))
+        inter_names.append("({},{})".format(group_names[r], "F"))
+        intersections.append((r, 9))
 
-    # Sex-Age Intersections
-    group_members_all.append(group_memberships[8] & group_memberships[10]) # 40
-    group_members_all.append(group_memberships[8] & group_memberships[11]) # 41
-    group_members_all.append(group_memberships[9] & group_memberships[10]) # 42
-    group_members_all.append(group_memberships[9] & group_memberships[11]) # 43
-
-    # Sex-Age-Race Intersections
     for r in range(1, 8):
-        group_members_all.append(group_memberships[r] & group_members_all[40])
-        group_members_all.append(group_memberships[r] & group_members_all[41])
-        group_members_all.append(group_memberships[r] & group_members_all[42])
-        group_members_all.append(group_memberships[r] & group_members_all[43])
+        inter_names.append("({},{})".format(group_names[r], "Y"))
+        intersections.append((r, 10))
+        inter_names.append("({},{})".format(group_names[r], "O"))
+        intersections.append((r, 11))
+
+    for s in range(8, 10):
+        for a in range(10, 12):
+            inter_names.append("({},{})".format(
+                group_names[s], group_names[a]))
+            intersections.append((s, a))
 
     to_one_hot = set(['COW', 'MAR', 'OCCP', 'POBP', 'RELP', 'RAC1P'])
     to_leave_alone = set(ACSIncome.features) - to_one_hot
     one_hot_inds = [i for i, x in enumerate(ACSIncome.features) if x in to_one_hot]
     leave_alone_inds = [i for i, x in enumerate(ACSIncome.features) if x in to_leave_alone]
 
-    steps = [('onehot', OneHotEncoder(handle_unknown='ignore'), one_hot_inds), ('num', MinMaxScaler(), leave_alone_inds)]
+    steps = [('onehot', OneHotEncoder(handle_unknown='ignore'), one_hot_inds), ('num', StandardScaler(), leave_alone_inds)]
     col_transf = ColumnTransformer(steps)
-    X_transf = col_transf.fit_transform(X).toarray()
-    print("Column-transformed X has shape: {}".format(X_transf.shape))
-    return X, y, col_transf, group_memberships, group_members_all
+    X = col_transf.fit_transform(X).toarray()
+    dataset = Dataset(X, y, groups, intersections, group_names, inter_names)
+    return dataset
+
+def name_to_dataset(dataset):
+    """
+    Takes a dataset name and outputs the preprocessed dataset as a Dataset object with X, y, groups, intersections, group_names, and inter_names.
+    """
+    if dataset == 'adult':
+        dataset = preprocess_adult()
+    elif dataset == 'compas':
+        dataset = preprocess_compas()
+    elif dataset == 'communities':
+        dataset = preprocess_communities()
+    elif dataset == 'german':
+        dataset = preprocess_german()
+    elif dataset == 'employment':
+        dataset = preprocess_employment()
+    elif dataset == 'income':
+        dataset = preprocess_income()
+    else:
+        raise ValueError("Dataset: {} is not valid!".format(dataset))
+    return dataset

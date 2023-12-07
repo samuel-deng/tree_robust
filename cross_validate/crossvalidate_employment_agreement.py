@@ -9,15 +9,16 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import GradientBoostingClassifier, AdaBoostClassifier, RandomForestClassifier
 from xgboost import XGBClassifier
 
-from preprocess_data import preprocess_income
+from data import preprocess_employment
 from train_utils import cross_validate_pergroup
 
-# Preprocess Adult Dataset (folktables)
-X, y, col_transf, _, group_memberships = preprocess_income()
+# Preprocess Employment Dataset (folktables)
+X, y, col_transf, _, group_memberships = preprocess_employment()
 num_groups = len(group_memberships)
 
+# Train-test split
 if __name__ == "__main__":
-    SAVE_DATA_PATH = 'income_agreement_data/'
+    SAVE_DATA_PATH = 'employment_agreement_data/'
     parser = argparse.ArgumentParser(
                         prog='crossvalidate_income_agreement',
                         description='Cross-validator for DecisionTree, Gradient-Boosted Trees, XGBoost.')
@@ -42,9 +43,8 @@ if __name__ == "__main__":
             'ccp_alpha': [0, 0.01, 0.1, 1.0],
             'random_state': [0]
         }
-        best_params_pergroup = cross_validate_pergroup(X, y, col_transf, 
-                                                    group_memberships, num_groups, 
-                                                    DecisionTreeClassifier, param_grid)
+        best_params_pergroup = cross_validate_pergroup(X, y,
+                                                       col_transf, group_memberships, num_groups, DecisionTreeClassifier, param_grid)
         with open(best_params_path, 'wb') as handle:
             pickle.dump(best_params_pergroup, handle, protocol=pickle.HIGHEST_PROTOCOL)
 

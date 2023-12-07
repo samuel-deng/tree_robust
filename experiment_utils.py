@@ -1,12 +1,15 @@
+"""
+Utility functions for the experiments in agreement.py and errors.py.
+"""
+from joblib import Parallel, delayed
+import numpy as np
+
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier, HistGradientBoostingClassifier
 from sklearn.tree import DecisionTreeClassifier
 from xgboost import XGBClassifier
 
 from sklearn.model_selection import train_test_split
 from sklearn.utils import resample
-
-from joblib import Parallel, delayed
-import numpy as np
 
 def std_err(n:int, e:float):
     """Return the lower and upper bound on error rate when test set size is n and empirical error rate is e"""

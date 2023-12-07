@@ -1,4 +1,4 @@
-from preprocess_data import preprocess_adult, preprocess_communities,preprocess_compas, preprocess_german, preprocess_employment, preprocess_income
+from data import preprocess_adult, preprocess_communities,preprocess_compas, preprocess_german, preprocess_employment, preprocess_income
 from multiprocessing import cpu_count
 from joblib import Parallel, delayed
 import pickle
