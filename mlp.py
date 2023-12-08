@@ -9,7 +9,10 @@ Credit goes to: @gillwesl
 """
 from abc import ABC
 import torch
+import os
+from tempfile import TemporaryDirectory
 from torch import nn
+from tqdm import tqdm
 
 # Get cpu, gpu or mps device for training.
 device = (
@@ -52,45 +55,106 @@ class TorchMLP(nn.Module, ABC):
         return output.double()
 
 
-class MLPClassifier:
+class MLPClassifier(TorchMLP):
     """
     Wrapper class so our MLP looks like an sklearn model
     """
 
-    def __init__(self, h_sizes, lr=0.0001, momentum=0.9, weight_decay=0, task='classification'):
+    def __init__(self, h_sizes, lr=0.0001, momentum=0.9, weight_decay=0,
+                 n_epochs=50):
+        super(TorchMLP, self).__init__()
         self.model = TorchMLP(h_sizes)
         self.model.double()  # set model type to double
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr, momentum=momentum, weight_decay=weight_decay)
+        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=lr, momentum=momentum, weight_decay=weight_decay)
+        self.n_epochs = n_epochs
 
     def to(self, device):
         self.model.to(device)
 
-    def fit(self, X, y,  n_epochs=5, loss_type='BCE'):
+    def fit(self, X, y, X_val=None, y_val=None, batch_size=128,
+            loss_type='BCE', tmp_file_dir='./tmp'):
         """
         Fits the model using the entire sample data as the batch size
         """
         X = torch.from_numpy(X)
         y = torch.from_numpy(y).double()
-        print(device)
         X, y = X.to(device), y.to(device)
         self.model.to(device)
         self.model.train()  # Puts model in training mode so it updates itself
 
-        # Binary Cross-Entropy Loss with sample weights
-        criterion = nn.BCEWithLogitsLoss() 
-        for epoch in range(n_epochs):
-            self.optimizer.zero_grad()  # Set gradients to 0 before back propagation for this epoch
-            # Forward pass
-            y_pred = self.model(X)
-            # Compute Loss
-            loss = criterion(y_pred.squeeze(), y)
-            # print(f'Epoch {epoch}: train loss: {loss.item()}')
-            # Backward pass
-            loss.backward()
-            self.optimizer.step()
+        # Construct a trainloader so we can do SGD
+        dataset = torch.utils.data.TensorDataset(X, y)
+        loader = torch.utils.data.DataLoader(dataset, 
+                                             shuffle=True, batch_size=batch_size)
+
+        # Binary Cross-Entropy Loss
+        criterion = nn.BCEWithLogitsLoss()
+
+        # If validation data is supplied, keep the weights on the best epoch
+        keep_best_epoch = False
+        if X_val is not None and y_val is not None:
+            keep_best_epoch = True
+            best_epoch = 0
+            best_epoch_loss = float('inf')
+
+        # Temporary directory for storing data during training
+        self.tmp_file_dir = tmp_file_dir
+        if not os.path.exists(tmp_file_dir):
+            os.makedirs(tmp_file_dir)
+        with TemporaryDirectory(dir=self.tmp_file_dir) as tmp_dir:
+            print("Created temporary directory: {}".format(tmp_dir))
+            for epoch in tqdm(range(self.n_epochs)):
+                for X, y in loader:
+                    self.optimizer.zero_grad()  # Set gradients to 0 before back propagation for this epoch
+                    # Forward pass
+                    y_pred = self.model(X)
+                    # Compute Loss
+                    loss = criterion(y_pred.squeeze(), y)
+                    #print(f'Epoch {epoch}: train loss: {loss.item()}')
+
+                    # Backward pass
+                    loss.backward()
+                    self.optimizer.step()
+
+                 # If validation data is given, compute the validation loss
+                if keep_best_epoch:
+                    val_loss = self.compute_val(X_val, y_val, criterion)
+                    if val_loss < best_epoch_loss:
+                        best_epoch = epoch
+                        best_epoch_loss = val_loss
+                        print("Best epoch={} with loss={}".format(epoch, best_epoch_loss))
+                        self.save_weights(tmp_dir)
+            
+            # Done training -- load the best weights for the model again
+            if keep_best_epoch:
+                self.load_weights(tmp_dir)
 
         self.model.to(torch.device('cpu'))
         return self
+
+    def save_weights(self, dirname):
+        weights_fp = os.path.join(dirname, 'weights.pt')
+        torch.save(self.state_dict(), weights_fp)
+        return
+
+    def load_weights(self, dirname):
+        weights_fp = os.path.join(dirname, 'weights.pt')
+        state_dict = torch.load(weights_fp)
+        self.load_state_dict(state_dict)
+        return
+
+    def compute_val(self, X_val, y_val, criterion):
+        """
+        Computes validation loss for keeping the best epoch.
+        """
+        self.model.eval()
+        X = torch.from_numpy(X_val)
+        y = torch.from_numpy(y_val).double()
+        with torch.no_grad():
+            val_pred = self.model(X)
+            val_loss = criterion(val_pred.squeeze(), y)
+
+        return val_loss
 
     def predict_proba(self, X):
         """
@@ -106,4 +170,4 @@ class MLPClassifier:
         :param X: Feature matrix we want to make predictions on
         :return: Binary predictions for each instance of X
         """
-        return self.predict_proba(X) > 0.5  # Converts probabilistic predictions into binary ones
+        return (self.predict_proba(X) > 0.5).astype(int)

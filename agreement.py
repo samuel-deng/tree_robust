@@ -49,10 +49,6 @@ def agreement_trial(X, y, dataset, model_name, params=False):
     intersect_results = []
     group_results = []
 
-    # MLP needs a dense array for PyTorch
-    if model_name == 'MLP':
-        X = X.toarray()
-
     # Fit each model to each group
     fitted_models = []
     for group, group_name in zip(groups, dataset.group_names):
@@ -109,7 +105,7 @@ def run_agreement(args, dataset, model_names):
         results[model_name] = {}
 
         # Run args.bootstraps number of agreement trials
-        model_results = Parallel(n_jobs=-1)(delayed(agreement_trial)(
+        model_results = Parallel(n_jobs=16)(delayed(agreement_trial)(
             X, y, dataset, model_name, args.group_params) for _ in range(int(args.bootstraps)))
         
         # Unwrap all the results from the bootstraps

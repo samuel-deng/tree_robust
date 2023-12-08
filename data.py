@@ -6,7 +6,8 @@ from sklearn.preprocessing import LabelEncoder, OneHotEncoder, StandardScaler
 from sklearn.compose import ColumnTransformer
 
 from compas_utils import preprocess_compas_df
-from folktables import ACSDataSource, ACSEmployment, ACSIncome
+from folktables import ACSDataSource, ACSEmployment, ACSIncome, ACSPublicCoverage
+from models import construct_tree
 
 class Dataset:
     """
@@ -19,13 +20,16 @@ class Dataset:
         group_names: List of all group names for the dataset (e.g. "W" or "Y")
         inter_names: List of all intersection names for the dataset (e.g. "(W, M)").
     """
-    def __init__(self, X, y, groups, intersections, group_names, inter_names):
+    def __init__(self, name, X, y, groups, intersections, 
+                 group_names, inter_names, trees):
+        self.name = name
         self.X = X
         self.y = y
         self.groups = groups
         self.intersections = intersections
         self.group_names = group_names
         self.inter_names = inter_names
+        self.trees = trees
 
 def adult_gp_indices(df, race_val, sex_val):
     if race_val == "NotWhite":
@@ -200,6 +204,11 @@ def preprocess_adult(train_path='datasets/adult/adult.data',
     sex_indices = [3, 4]
     intersections = list(itertools.product(race_indices, sex_indices))
 
+    # Construct trees for TREEPEND
+    trees = []
+    trees.append(construct_tree(race_indices, intersections))
+    trees.append(construct_tree(sex_indices, intersections))
+
     """
     for race in race_gps_coarse:
     for sex in sex_gps:
@@ -211,7 +220,8 @@ def preprocess_adult(train_path='datasets/adult/adult.data',
 
     # Fit the ColumnTransformer to X
     X = col_transf.fit_transform(X)
-    dataset = Dataset(X, y, groups, intersections, group_names, inter_names)
+    dataset = Dataset("adult", X, y, groups, intersections, 
+                      group_names, inter_names, trees)
     return dataset
 
 def preprocess_communities(train_path='datasets/communities-and-crime/attributes.csv', test_path='datasets/communities-and-crime/communities.data'):
@@ -284,9 +294,15 @@ def preprocess_communities(train_path='datasets/communities-and-crime/attributes
     income_indices = [3, 4]
     intersections = list(itertools.product(race_indices, income_indices))
 
+    # Construct trees for TREEPEND
+    trees = []
+    trees.append(construct_tree(race_indices, intersections))
+    trees.append(construct_tree(income_indices, intersections))
+
     # Fit the ColumnTransformer to X
     X = col_transf.fit_transform(X)
-    dataset = Dataset(X, y, groups, intersections, group_names, inter_names)
+    dataset = Dataset("communities", X, y, groups, intersections, 
+                      group_names, inter_names, trees)
     return dataset
 
 def preprocess_compas(train_path='datasets/compas/compas.csv'):
@@ -338,9 +354,15 @@ def preprocess_compas(train_path='datasets/compas/compas.csv'):
     sex_indices = [3, 4]
     intersections = list(itertools.product(race_indices, sex_indices))
 
+    # Construct trees for TREEPEND
+    trees = []
+    trees.append(construct_tree(race_indices, intersections))
+    trees.append(construct_tree(sex_indices, intersections))
+
     # Fit the ColumnTransformer to X
     X = col_transf.fit_transform(X)
-    dataset = Dataset(X, y, groups, intersections, group_names, inter_names)
+    dataset = Dataset("compas", X, y, groups, intersections, 
+                      group_names, inter_names, trees)
     return dataset
 
 def preprocess_german(train_path='datasets/german/german.data'):
@@ -426,9 +448,15 @@ def preprocess_german(train_path='datasets/german/german.data'):
     age_indices = [3, 4]
     intersections = list(itertools.product(sex_indices, age_indices))
 
+    # Construct trees for TREEPEND
+    trees = []
+    trees.append(construct_tree(sex_indices, intersections))
+    trees.append(construct_tree(age_indices, intersections))
+
     # Fit the ColumnTransformer to X
     X = col_transf.fit_transform(X)
-    dataset = Dataset(X, y, groups, intersections, group_names, inter_names)
+    dataset = Dataset("german", X, y, groups, intersections, 
+                      group_names, inter_names, trees)
     return dataset
 
 def preprocess_employment(year='2016', horizon='1-Year', states=["CA"]):
@@ -454,25 +482,43 @@ def preprocess_employment(year='2016', horizon='1-Year', states=["CA"]):
 
     # Additional groups for pair-wise intersections
     intersections = []
+    race_sex_intersections = []
+    race_age_intersections = []
+    sex_age_intersections = []
     inter_names = []
 
     for r in range(1, 8):
         inter_names.append("({},{})".format(group_names[r], "M"))
         intersections.append((r, 8))
+        race_sex_intersections.append((r,8))
         inter_names.append("({},{})".format(group_names[r], "F"))
         intersections.append((r, 9))
+        race_sex_intersections.append((r,9))
 
     for r in range(1, 8):
         inter_names.append("({},{})".format(group_names[r], "Y"))
         intersections.append((r, 10))
+        race_age_intersections.append((r,10))
         inter_names.append("({},{})".format(group_names[r], "O"))
         intersections.append((r, 11))
+        race_age_intersections.append((r,11))
 
     for s in range(8, 10):
         for a in range(10, 12):
             inter_names.append("({},{})".format(
                 group_names[s], group_names[a]))
             intersections.append((s, a))
+            sex_age_intersections.append((s,a))
+
+    # Construct trees for TREEPEND
+    trees = []
+    race_indices = list(range(1,8))
+    sex_indices = [8, 9]
+    age_indices = [10, 11]
+    trees.append(construct_tree(race_indices, race_sex_intersections))
+    trees.append(construct_tree(race_indices, race_age_intersections))
+    trees.append(construct_tree(sex_indices, sex_age_intersections))
+    trees.append(construct_tree(age_indices, sex_age_intersections))
 
     """
     # Race-Sex Intersections
@@ -505,8 +551,10 @@ def preprocess_employment(year='2016', horizon='1-Year', states=["CA"]):
 
     steps = [('onehot', OneHotEncoder(handle_unknown='ignore'), one_hot_inds), ('num', StandardScaler(), leave_alone_inds)]
     col_transf = ColumnTransformer(steps)
-    X = col_transf.fit_transform(X).toarray()
-    dataset = Dataset(X, y, groups, intersections, group_names, inter_names)
+    X = col_transf.fit_transform(X)
+    name = "employment{}".format(states[0])
+    dataset = Dataset(name, X, y, groups, intersections, 
+                      group_names, inter_names, trees)
     return dataset
 
 def preprocess_income(year='2016', horizon='1-Year', states=["CA"]):
@@ -532,26 +580,43 @@ def preprocess_income(year='2016', horizon='1-Year', states=["CA"]):
 
     # Additional groups for pair-wise intersections
     intersections = []
+    race_sex_intersections = []
+    race_age_intersections = []
+    sex_age_intersections = []
     inter_names = []
 
-    # Race-Sex Intersections
     for r in range(1, 8):
         inter_names.append("({},{})".format(group_names[r], "M"))
         intersections.append((r, 8))
+        race_sex_intersections.append((r,8))
         inter_names.append("({},{})".format(group_names[r], "F"))
         intersections.append((r, 9))
+        race_sex_intersections.append((r,9))
 
     for r in range(1, 8):
         inter_names.append("({},{})".format(group_names[r], "Y"))
         intersections.append((r, 10))
+        race_age_intersections.append((r,10))
         inter_names.append("({},{})".format(group_names[r], "O"))
         intersections.append((r, 11))
+        race_age_intersections.append((r,11))
 
     for s in range(8, 10):
         for a in range(10, 12):
             inter_names.append("({},{})".format(
                 group_names[s], group_names[a]))
             intersections.append((s, a))
+            sex_age_intersections.append((s,a))
+
+    # Construct trees for TREEPEND
+    trees = []
+    race_indices = list(range(1,8))
+    sex_indices = [8, 9]
+    age_indices = [10, 11]
+    trees.append(construct_tree(race_indices, race_sex_intersections))
+    trees.append(construct_tree(race_indices, race_age_intersections))
+    trees.append(construct_tree(sex_indices, sex_age_intersections))
+    trees.append(construct_tree(age_indices, sex_age_intersections))
 
     to_one_hot = set(['COW', 'MAR', 'OCCP', 'POBP', 'RELP', 'RAC1P'])
     to_leave_alone = set(ACSIncome.features) - to_one_hot
@@ -560,8 +625,85 @@ def preprocess_income(year='2016', horizon='1-Year', states=["CA"]):
 
     steps = [('onehot', OneHotEncoder(handle_unknown='ignore'), one_hot_inds), ('num', StandardScaler(), leave_alone_inds)]
     col_transf = ColumnTransformer(steps)
-    X = col_transf.fit_transform(X).toarray()
-    dataset = Dataset(X, y, groups, intersections, group_names, inter_names)
+    X = col_transf.fit_transform(X)
+    name = "income{}".format(states[0])
+    dataset = Dataset(name, X, y, groups, intersections, 
+                      group_names, inter_names, trees)
+    return dataset
+
+def preprocess_coverage(year='2016', horizon='1-Year', states=['CA']):
+    data_source = ACSDataSource(survey_year=year, horizon=horizon, survey='person')
+    acs_data = data_source.get_data(states=states, download=True)
+    X, y, group = ACSPublicCoverage.df_to_numpy(acs_data)
+    old = (X[:,0] > 32)
+    sex = X[:, 3]
+
+    # 12 groups (including ALL)
+    groups = []
+    group_names = ["ALL", "R1", "R2", "R3", "R6", "R7", "R8", "R9", 
+                    "M", "F", "Y", "O"]
+    groups.append([True] * y.shape[0]) # index: 0
+    for g in np.unique(group): # indices: 1 -> 7
+        if g == 4 or g == 5: # group is too small
+            continue
+        groups.append(group == g)
+    groups.append(sex == 1) # index: 8
+    groups.append(sex == 2) # index: 9
+    groups.append(old == False) # index: 10
+    groups.append(old == True) # index: 11
+
+    # Additional groups for pair-wise intersections
+    intersections = []
+    race_sex_intersections = []
+    race_age_intersections = []
+    sex_age_intersections = []
+    inter_names = []
+
+    for r in range(1, 8):
+        inter_names.append("({},{})".format(group_names[r], "M"))
+        intersections.append((r, 8))
+        race_sex_intersections.append((r,8))
+        inter_names.append("({},{})".format(group_names[r], "F"))
+        intersections.append((r, 9))
+        race_sex_intersections.append((r,9))
+
+    for r in range(1, 8):
+        inter_names.append("({},{})".format(group_names[r], "Y"))
+        intersections.append((r, 10))
+        race_age_intersections.append((r,10))
+        inter_names.append("({},{})".format(group_names[r], "O"))
+        intersections.append((r, 11))
+        race_age_intersections.append((r,11))
+
+    for s in range(8, 10):
+        for a in range(10, 12):
+            inter_names.append("({},{})".format(
+                group_names[s], group_names[a]))
+            intersections.append((s, a))
+            sex_age_intersections.append((s,a))
+
+    # Construct trees for TREEPEND
+    trees = []
+    race_indices = list(range(1,8))
+    sex_indices = [8, 9]
+    age_indices = [10, 11]
+    trees.append(construct_tree(race_indices, race_sex_intersections))
+    trees.append(construct_tree(race_indices, race_age_intersections))
+    trees.append(construct_tree(sex_indices, sex_age_intersections))
+    trees.append(construct_tree(age_indices, sex_age_intersections))
+
+    to_one_hot = set(['ESP', 'MAR', 'CIT', 'MIG', 'MIL', 
+                    'ANC', 'ESR', 'ST', 'RAC1P'])
+    to_leave_alone = set(ACSPublicCoverage.features) - to_one_hot
+    one_hot_inds = [i for i, x in enumerate(ACSPublicCoverage.features) if x in to_one_hot]
+    leave_alone_inds = [i for i, x in enumerate(ACSPublicCoverage.features) if x in to_leave_alone]
+
+    steps = [('onehot', OneHotEncoder(handle_unknown='ignore'), one_hot_inds), ('num', StandardScaler(), leave_alone_inds)]
+    col_transf = ColumnTransformer(steps)
+    X = col_transf.fit_transform(X)
+    name = "coverage{}".format(states[0])
+    dataset = Dataset(name, X, y, groups, intersections, 
+                        group_names, inter_names, trees)
     return dataset
 
 def name_to_dataset(dataset):
@@ -576,10 +718,24 @@ def name_to_dataset(dataset):
         dataset = preprocess_communities()
     elif dataset == 'german':
         dataset = preprocess_german()
-    elif dataset == 'employment':
+    elif dataset == 'employmentCA':
         dataset = preprocess_employment()
-    elif dataset == 'income':
+    elif dataset == 'employmentNY':
+        dataset = preprocess_employment(states=['NY'])
+    elif dataset == 'employmentTX':
+        dataset = preprocess_employment(states=['TX'])
+    elif dataset == 'incomeCA':
         dataset = preprocess_income()
+    elif dataset == 'incomeNY':
+        dataset = preprocess_income(states=['NY'])
+    elif dataset == 'incomeTX':
+        dataset = preprocess_income(states=['TX'])
+    elif dataset == 'coverageCA':
+        dataset = preprocess_coverage()
+    elif dataset == 'coverageNY':
+        dataset = preprocess_coverage(states=['NY'])
+    elif dataset == 'coverageTX':
+        dataset = preprocess_coverage(states=['TX'])
     else:
         raise ValueError("Dataset: {} is not valid!".format(dataset))
     return dataset

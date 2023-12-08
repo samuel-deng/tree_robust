@@ -3,6 +3,15 @@ from joblib import Parallel, delayed
 import numpy as np
 import time
 
+def std_err(n:int, e:float):
+    """Return the lower and upper bound on error rate when test set size is n and empirical error rate is e"""
+    assert e >= 0. and e <= 1 and n >= 0, f'Invalid input: n={n}, e={e}'
+    a = 4.+n
+    b = 2.+n*e
+    c = n*e**2
+    d = 2.*np.sqrt(1.+n*e*(1.-e))
+    return ((b-d)/a, (b+d)/a)
+
 '''
 Function for training a model ERM on some KFold splits and then evaluating on
 each group for each of the splits.

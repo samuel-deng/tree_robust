@@ -20,14 +20,14 @@ RESULTS_PATH = './results'
 # List of base models to use. Specific ones to use are passed as an argument.
 MODELS = [
     'LogisticRegression',
-    'LogisticRegressionSGD',
+    #'LogisticRegressionSGD',
     'SVMClassifier',
     'DecisionTree2',
     'DecisionTree4',
     'DecisionTree',
     'RandomForest',
     'XGBoost',
-    #'MLP'
+    'MLP'
     ]
 
 DATASETS = [
@@ -35,8 +35,15 @@ DATASETS = [
     'communities',
     'compas',
     'german',
-    'income',
-    'employment',
+    'incomeCA',
+    'incomeNY',
+    'incomeTX',
+    'employmentCA',
+    'employmentNY',
+    'employmentTX',
+    'coverageCA',
+    'coverageNY',
+    'coverageTX'
     ]
 
 def save_results(args, datasets, models, results):
@@ -95,8 +102,9 @@ if __name__ == "__main__":
     parser.add_argument('--skip_agree', action='store_true', default=False)
     parser.add_argument('--errs_dir', default='errors')
     parser.add_argument('--skip_errs', action='store_true', default=False)
-    parser.add_argument('--dataset', default=-1)
+    parser.add_argument('--dataset', default=-1, type=int)
     parser.add_argument('--model', default=-1)
+    parser.add_argument('--random_state', default=0, type=int)
 
     args = parser.parse_args()
     args.agree = True
