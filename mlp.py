@@ -76,6 +76,7 @@ class MLPClassifier(TorchMLP):
         """
         Fits the model using the entire sample data as the batch size
         """
+        print("Fitting with device={}".format(device))
         X = torch.from_numpy(X)
         y = torch.from_numpy(y).double()
         X, y = X.to(device), y.to(device)
