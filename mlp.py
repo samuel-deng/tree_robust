@@ -76,7 +76,8 @@ class MLPClassifier(TorchMLP):
         """
         Fits the model using the entire sample data as the batch size
         """
-        print("Fitting with device={}".format(device))
+        # print("Fitting with device={}".format(device))
+        print(device)
         X = torch.from_numpy(X)
         y = torch.from_numpy(y).double()
         X, y = X.to(device), y.to(device)
@@ -103,7 +104,7 @@ class MLPClassifier(TorchMLP):
         if not os.path.exists(tmp_file_dir):
             os.makedirs(tmp_file_dir)
         with TemporaryDirectory(dir=self.tmp_file_dir) as tmp_dir:
-            print("Created temporary directory: {}".format(tmp_dir))
+            # print("Created temporary directory: {}".format(tmp_dir))
             for epoch in tqdm(range(self.n_epochs)):
                 for X, y in loader:
                     self.optimizer.zero_grad()  # Set gradients to 0 before back propagation for this epoch

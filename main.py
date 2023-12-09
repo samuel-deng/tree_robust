@@ -1,3 +1,4 @@
+#!/user/sd3013/.conda/envs/agreement/bin/python
 """
 Main function for running and evaluating (1) group agreement (2) group errors on each dataset and each model class.
 """
@@ -27,7 +28,7 @@ MODELS = [
     'DecisionTree',
     'RandomForest',
     'XGBoost',
-    'MLP'
+    #'MLP'
     ]
 
 DATASETS = [
@@ -55,8 +56,6 @@ def save_results(args, datasets, models, results):
     if args.agree:
         agree_dir = os.path.join(RESULTS_PATH, args.agree_dir)
         Path(agree_dir).mkdir(parents=True, exist_ok=True)
-        with open(os.path.join(agree_dir, 'cmd.txt'), 'w') as fw:
-            json.dump(args.__dict__, fw)
         for dataset in datasets:
             for model in models:
                 f = os.path.join(agree_dir, "{}_{}.pt".format(dataset, model))
@@ -64,12 +63,23 @@ def save_results(args, datasets, models, results):
     if args.errs:
         errs_dir = os.path.join(RESULTS_PATH, args.errs_dir)
         Path(errs_dir).mkdir(parents=True, exist_ok=True)
-        with open(os.path.join(errs_dir, 'cmd.txt'), 'w') as fw:
-            json.dump(args.__dict__, fw)
         for dataset in datasets:
             for model in models:
                 f = os.path.join(errs_dir, "{}_{}.pt".format(dataset, model))
                 torch.save(results['errs'][dataset][model], f)
+
+def save_result(models, results, path):
+    """
+    Save final results fo the experiments to results/agree/ and results/errors/. The path for each type of experiment, respectively, are:
+        (1) results/agree/<dataset>_<model>.pt
+        (2) results/errors/<dataset>_<model>.pt
+    """
+    dir = os.path.join(RESULTS_PATH, path)
+    Path(dir).mkdir(parents=True, exist_ok=True)
+    for model in models:
+        f = os.path.join(dir, "{}.pt".format(model))
+        torch.save(results[model], f)
+        print("Saved model={} results to {}!".format(model, path))
 
 def main(args, datasets, models):
     """
@@ -85,11 +95,14 @@ def main(args, datasets, models):
             print("\n=== Agreement on dataset: {} ===".format(dataset_name))
             agree_results = run_agreement(args, dataset, models)
             print_agreement(agree_results, models)
-            results['agree'][dataset_name] = agree_results
+            save_result(models, agree_results, 'agree/{}'.format(dataset_name))
+            #results['agree'][dataset_name] = agree_results
         if args.errs:
             print("\n=== Errors on dataset: {} ===".format(dataset_name))
             errs_results = run_errors(args, dataset, models)
-            results['errs'][dataset_name] = errs_results
+            save_result(models, errs_results, 'errors/{}'.format(dataset_name))
+            #save_results()
+            #results['errs'][dataset_name] = errs_results
 
     return results
 
@@ -98,7 +111,7 @@ if __name__ == "__main__":
     parser.add_argument('--load_models', action='store_true', default=False)
     parser.add_argument('--group_params', action='store_true', default=False)
     parser.add_argument('--agree_dir', default="agree")
-    parser.add_argument('--bootstraps', default=200)
+    parser.add_argument('--bootstraps', default=1000)
     parser.add_argument('--skip_agree', action='store_true', default=False)
     parser.add_argument('--errs_dir', default='errors')
     parser.add_argument('--skip_errs', action='store_true', default=False)

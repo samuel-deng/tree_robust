@@ -36,12 +36,14 @@ def name_to_model(model_name, X_dim=None, params=None):
     if params == None:
         params = {}
     if model_name == 'LogisticRegression':
+        params['dual'] = False
         model = LogisticRegression(**params)
     elif model_name == 'LogisticRegressionSGD':
         params['loss'] = 'log_loss'
         params['penalty'] = None
         model = SGDClassifier(**params)
     elif model_name == 'SVMClassifier':
+        params['dual'] = False
         model = LinearSVC(**params)
     elif model_name == 'DecisionTree2':
         params['criterion'] = 'log_loss'
