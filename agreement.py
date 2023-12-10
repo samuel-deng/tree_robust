@@ -30,7 +30,7 @@ def eval_agreement(models, X):
         agreement = (agreement == models[i].predict(X)).astype(int)
     return np.sum(agreement)/len(agreement)
 
-def agreement_trial(X, y, dataset, model_name, params=False):
+def agreement_trial(X, y, dataset, model_name, params=False, resample=True):
     """
     Gets agreements for each group intersection and for ERM and each group.
 
@@ -41,10 +41,13 @@ def agreement_trial(X, y, dataset, model_name, params=False):
         model_name: model to fit
         params: Boolean value to fit group-wise cross-validated parameters
     """
-    splits = resample(*tuple([X, y] + dataset.groups), n_samples=X.shape[0])
-    X = splits[0]
-    y = splits[1]
-    groups = splits[2:]
+    if resample:
+        splits = resample(*tuple([X, y] + dataset.groups), n_samples=X.shape[0])
+        X = splits[0]
+        y = splits[1]
+        groups = splits[2:]
+    else:
+        groups = dataset.groups
     
     intersect_results = []
     group_results = []
@@ -61,6 +64,7 @@ def agreement_trial(X, y, dataset, model_name, params=False):
     # Get agreements for each group intersection
     for ((g1, g2), name) in zip(dataset.intersections, dataset.inter_names):
         indices = groups[g1] & groups[g2]
+        print("Samples in intersection {}: {}".format(name, np.sum(indices)))
         models = [fitted_models[g1], fitted_models[g2]]
         intersect_results.append(eval_agreement(models, X[indices]))
 
@@ -106,8 +110,8 @@ def run_agreement(args, dataset, model_names):
 
         # Run args.bootstraps number of agreement trials
         if args.bootstraps == 1:
-            model_results = agreement_trial(X, y, dataset, 
-                                            model_name, args.group_params)
+            model_results = agreement_trial(X, y, dataset, model_name, 
+                                            args.group_params, resample=False)
             model_results = [model_results]
         else:
             model_results = Parallel(n_jobs=args.n_cpus)(
