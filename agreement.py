@@ -105,8 +105,14 @@ def run_agreement(args, dataset, model_names):
         results[model_name] = {}
 
         # Run args.bootstraps number of agreement trials
-        model_results = Parallel(n_jobs=-1)(delayed(agreement_trial)(
-            X, y, dataset, model_name, args.group_params) for _ in range(int(args.bootstraps)))
+        if args.bootstraps == 1:
+            model_results = agreement_trial(X, y, dataset, 
+                                            model_name, args.group_params)
+            model_results = [model_results]
+        else:
+            model_results = Parallel(n_jobs=args.n_cpus)(
+                delayed(agreement_trial)(X, y, dataset, model_name, args.group_params) for _ in range(int(args.bootstraps)))
+            
         
         # Unwrap all the results from the bootstraps
         inter_results_all = [[] for _ in range(len(dataset.inter_names))]

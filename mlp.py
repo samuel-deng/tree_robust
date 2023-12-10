@@ -10,6 +10,8 @@ Credit goes to: @gillwesl
 from abc import ABC
 import torch
 import os
+import scipy
+import numpy as np
 from tempfile import TemporaryDirectory
 from torch import nn
 from tqdm import tqdm
@@ -77,8 +79,18 @@ class MLPClassifier(TorchMLP):
         Fits the model using the entire sample data as the batch size
         """
         # print("Fitting with device={}".format(device))
-        print(device)
-        X = torch.from_numpy(X)
+        # Adult, Folktables give sparse matrices
+        if scipy.sparse.issparse(X):
+            X = X.tocoo()
+            values = X.data
+            indices = np.vstack((X.row, X.col))
+            i = torch.LongTensor(indices)
+            v = torch.FloatTensor(values)
+            shape = X.shape
+            X = torch.sparse.FloatTensor(i, v, torch.Size(shape))
+        else:
+            X = torch.from_numpy(X)
+            
         y = torch.from_numpy(y).double()
         X, y = X.to(device), y.to(device)
         self.model.to(device)

@@ -21,22 +21,22 @@ RESULTS_PATH = './results'
 # List of base models to use. Specific ones to use are passed as an argument.
 MODELS = [
     'LogisticRegression',
-    #'LogisticRegressionSGD',
     'SVMClassifier',
     'DecisionTree2',
     'DecisionTree4',
     'DecisionTree',
     'RandomForest',
     'XGBoost',
-    #'MLP'
+    'MLP'
     ]
+# LogisticRegressionSGD
 
 DATASETS = [
-    'adult',
-    'communities',
-    'compas',
-    'german',
-    'incomeCA',
+    #'adult',
+    #'communities',
+    #'compas',
+    #'german',
+    #'incomeCA',
     'incomeNY',
     'incomeTX',
     'employmentCA',
@@ -111,13 +111,14 @@ if __name__ == "__main__":
     parser.add_argument('--load_models', action='store_true', default=False)
     parser.add_argument('--group_params', action='store_true', default=False)
     parser.add_argument('--agree_dir', default="agree")
-    parser.add_argument('--bootstraps', default=1000)
+    parser.add_argument('--bootstraps', default=1000, type=int)
     parser.add_argument('--skip_agree', action='store_true', default=False)
     parser.add_argument('--errs_dir', default='errors')
     parser.add_argument('--skip_errs', action='store_true', default=False)
     parser.add_argument('--dataset', default=-1, type=int)
     parser.add_argument('--model', default=-1)
     parser.add_argument('--random_state', default=0, type=int)
+    parser.add_argument('--n_cpus', default=16, type=int)
 
     args = parser.parse_args()
     args.agree = True
@@ -136,5 +137,5 @@ if __name__ == "__main__":
         args.errs = False
 
     results = main(args, datasets, models)
-    save_results(args, datasets, models, results)
+    # save_results(args, datasets, models, results)
     

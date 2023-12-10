@@ -219,7 +219,7 @@ def preprocess_adult(train_path='datasets/adult/adult.data',
     """
 
     # Fit the ColumnTransformer to X
-    X = col_transf.fit_transform(X).toarray()
+    X = col_transf.fit_transform(X)
     dataset = Dataset("adult", X, y, groups, intersections, 
                       group_names, inter_names, trees)
     return dataset
@@ -551,7 +551,7 @@ def preprocess_employment(year='2016', horizon='1-Year', states=["CA"]):
 
     steps = [('onehot', OneHotEncoder(handle_unknown='ignore'), one_hot_inds), ('num', StandardScaler(), leave_alone_inds)]
     col_transf = ColumnTransformer(steps)
-    X = col_transf.fit_transform(X).toarray()
+    X = col_transf.fit_transform(X)
     name = "employment{}".format(states[0])
     dataset = Dataset(name, X, y, groups, intersections, 
                       group_names, inter_names, trees)
@@ -625,7 +625,7 @@ def preprocess_income(year='2016', horizon='1-Year', states=["CA"]):
 
     steps = [('onehot', OneHotEncoder(handle_unknown='ignore'), one_hot_inds), ('num', StandardScaler(), leave_alone_inds)]
     col_transf = ColumnTransformer(steps)
-    X = col_transf.fit_transform(X).toarray()
+    X = col_transf.fit_transform(X)
     name = "income{}".format(states[0])
     dataset = Dataset(name, X, y, groups, intersections, 
                       group_names, inter_names, trees)
@@ -700,7 +700,7 @@ def preprocess_coverage(year='2016', horizon='1-Year', states=['CA']):
 
     steps = [('onehot', OneHotEncoder(handle_unknown='ignore'), one_hot_inds), ('num', StandardScaler(), leave_alone_inds)]
     col_transf = ColumnTransformer(steps)
-    X = col_transf.fit_transform(X).toarray()
+    X = col_transf.fit_transform(X)
     name = "coverage{}".format(states[0])
     dataset = Dataset(name, X, y, groups, intersections, 
                         group_names, inter_names, trees)
