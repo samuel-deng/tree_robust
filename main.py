@@ -27,7 +27,7 @@ MODELS = [
     'DecisionTree',
     'RandomForest',
     'XGBoost',
-    #'MLP'
+    'MLP'
     ]
 # LogisticRegressionSGD
 
@@ -38,7 +38,7 @@ DATASETS = [
     #'german',
     #'incomeCA',
     #'incomeNY',
-    'incomeTX',
+    #'incomeTX',
     'employmentCA',
     'employmentNY',
     'employmentTX',

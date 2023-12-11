@@ -30,7 +30,7 @@ def eval_agreement(models, X):
         agreement = (agreement == models[i].predict(X)).astype(int)
     return np.sum(agreement)/len(agreement)
 
-def agreement_trial(X, y, dataset, model_name, params=False, resample=True):
+def agreement_trial(X, y, dataset, model_name, params=False, bootstrap=True):
     """
     Gets agreements for each group intersection and for ERM and each group.
 
@@ -41,8 +41,9 @@ def agreement_trial(X, y, dataset, model_name, params=False, resample=True):
         model_name: model to fit
         params: Boolean value to fit group-wise cross-validated parameters
     """
-    if resample:
-        splits = resample(*tuple([X, y] + dataset.groups), n_samples=X.shape[0])
+    if bootstrap:
+        splits = resample(*tuple([X, y] + dataset.groups), 
+                          n_samples=X.shape[0], stratify=y)
         X = splits[0]
         y = splits[1]
         groups = splits[2:]
@@ -53,10 +54,20 @@ def agreement_trial(X, y, dataset, model_name, params=False, resample=True):
     group_results = []
 
     # Fit each model to each group
+    params = None
+    if model_name == 'MLP' and dataset.name == 'adult':
+        params = {}
+        params['n_epochs'] = 300
+    elif model_name == 'MLP' and dataset.name == 'compas':
+        params = {}
+        params['n_epochs'] = 300
+    elif model_name == 'MLP' and dataset.name == 'communities':
+        params = {}
+        params['n_epochs'] = 100
     fitted_models = []
     for group, group_name in zip(groups, dataset.group_names):
         if params:
-            model = name_to_model(model_name, X_dim=X.shape[1])
+            model = name_to_model(model_name, X_dim=X.shape[1], params=params)
         else:
             model = name_to_model(model_name, X_dim=X.shape[1])
         fitted_models.append(model.fit(X[group], y[group]))
@@ -64,9 +75,11 @@ def agreement_trial(X, y, dataset, model_name, params=False, resample=True):
     # Get agreements for each group intersection
     for ((g1, g2), name) in zip(dataset.intersections, dataset.inter_names):
         indices = groups[g1] & groups[g2]
-        print("Samples in intersection {}: {}".format(name, np.sum(indices)))
-        models = [fitted_models[g1], fitted_models[g2]]
-        intersect_results.append(eval_agreement(models, X[indices]))
+        if np.sum(indices) == 0:
+            intersect_results.append(1.0)
+        else:
+            models = [fitted_models[g1], fitted_models[g2]]
+            intersect_results.append(eval_agreement(models, X[indices]))
 
     # Get agreements for the ERM model with each group
     for g in range(1, len(groups)):
@@ -111,7 +124,7 @@ def run_agreement(args, dataset, model_names):
         # Run args.bootstraps number of agreement trials
         if args.bootstraps == 1:
             model_results = agreement_trial(X, y, dataset, model_name, 
-                                            args.group_params, resample=False)
+                                            args.group_params, bootstrap=False)
             model_results = [model_results]
         else:
             model_results = Parallel(n_jobs=args.n_cpus)(

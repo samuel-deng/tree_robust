@@ -81,13 +81,7 @@ class MLPClassifier(TorchMLP):
         # print("Fitting with device={}".format(device))
         # Adult, Folktables give sparse matrices
         if scipy.sparse.issparse(X):
-            X = X.tocoo()
-            values = X.data
-            indices = np.vstack((X.row, X.col))
-            i = torch.LongTensor(indices)
-            v = torch.FloatTensor(values)
-            shape = X.shape
-            X = torch.sparse.FloatTensor(i, v, torch.Size(shape))
+            X = torch.from_numpy(X.toarray())
         else:
             X = torch.from_numpy(X)
             
@@ -122,8 +116,9 @@ class MLPClassifier(TorchMLP):
                     self.optimizer.zero_grad()  # Set gradients to 0 before back propagation for this epoch
                     # Forward pass
                     y_pred = self.model(X)
+                    
                     # Compute Loss
-                    loss = criterion(y_pred.squeeze(), y)
+                    loss = criterion(y_pred.squeeze(), y.squeeze())
                     #print(f'Epoch {epoch}: train loss: {loss.item()}')
 
                     # Backward pass
@@ -177,6 +172,8 @@ class MLPClassifier(TorchMLP):
         """
         self.model.eval()  # Puts the model in evaluation mode so calls to forward do not update it
         with torch.no_grad():  # Disables automatic gradient updates from pytorch since we are just evaluating
+            if scipy.sparse.issparse(X):
+                X = X.toarray()
             return torch.sigmoid(self.model(torch.from_numpy(X))).numpy().squeeze()  # Apply sigmoid manually
 
     def predict(self, X):
