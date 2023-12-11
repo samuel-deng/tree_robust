@@ -15,13 +15,19 @@ import pickle
 from train_utils import std_err
 
 MODELS = [
-    'LogisticRegression',
-    'SVMClassifier',
+    #'LogisticRegression',
+    #'SVMClassifier',
     'DecisionTree2',
     'DecisionTree4',
+    'DecisionTree8',
+    'DecisionTree16',
     'DecisionTree',
-    'RandomForest',
-    'XGBoost',
+    'RandomForest2',
+    'RandomForest4',
+    'RandomForest8',
+    'RandomForest16',
+    #'RandomForest',
+    #'XGBoost',
     #'MLP'
     ]
 PARAM_PATH = "params/"
@@ -53,10 +59,35 @@ def name_to_model(model_name, X_dim=None, params=None):
         params['criterion'] = 'log_loss'
         params['max_depth'] = 4
         model = DecisionTreeClassifier(**params)
+    elif model_name == 'DecisionTree8':
+        params['criterion'] = 'log_loss'
+        params['max_depth'] = 8
+        model = DecisionTreeClassifier(**params)
+    elif model_name == 'DecisionTree16':
+        params['criterion'] = 'log_loss'
+        params['max_depth'] = 16
+        model = DecisionTreeClassifier(**params)
     elif model_name == 'DecisionTree':
         params['criterion'] = 'log_loss'
         model = DecisionTreeClassifier(**params)
+    elif model_name == 'RandomForest2':
+        params['criterion'] = 'log_loss'
+        params['max_depth'] = 2
+        model = DecisionTreeClassifier(**params)
+    elif model_name == 'RandomForest4':
+        params['criterion'] = 'log_loss'
+        params['max_depth'] = 4
+        model = DecisionTreeClassifier(**params)
+    elif model_name == 'RandomForest8':
+        params['criterion'] = 'log_loss'
+        params['max_depth'] = 8
+        model = DecisionTreeClassifier(**params)
+    elif model_name == 'RandomForest16':
+        params['criterion'] = 'log_loss'
+        params['max_depth'] = 16
+        model = DecisionTreeClassifier(**params)
     elif model_name == 'RandomForest':
+        params['criterion'] = 'log_loss'
         model = RandomForestClassifier(**params)
     elif model_name == 'XGBoost':
         model = XGBClassifier(**params)
