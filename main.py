@@ -20,25 +20,31 @@ RESULTS_PATH = './results'
 
 # List of base models to use. Specific ones to use are passed as an argument.
 MODELS = [
-    'LogisticRegression',
-    'SVMClassifier',
+    #'LogisticRegression',
+    #'SVMClassifier',
     'DecisionTree2',
     'DecisionTree4',
+    'DecisionTree8',
+    'DecisionTree16',
     'DecisionTree',
-    'RandomForest',
-    'XGBoost',
-    'MLP'
+    'RandomForest2',
+    'RandomForest4',
+    'RandomForest8',
+    'RandomForest16',
+    #'RandomForest',
+    #'XGBoost',
+    #'MLP'
     ]
 # LogisticRegressionSGD
 
 DATASETS = [
-    #'adult',
-    #'communities',
-    #'compas',
-    #'german',
-    #'incomeCA',
-    #'incomeNY',
-    #'incomeTX',
+    'adult',
+    'communities',
+    'compas',
+    'german',
+    'incomeCA',
+    'incomeNY',
+    'incomeTX',
     'employmentCA',
     'employmentNY',
     'employmentTX',
