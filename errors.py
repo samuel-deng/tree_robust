@@ -96,6 +96,7 @@ def run_errors(args, dataset, models):
         '''
             
         # Evaluate on each group
+        results[model_name] = {}
         for g, group_name in enumerate(dataset.group_names):
             print("\n=== Error on G{}: {} ===\n".format(g, group_name))
             y_g = y_test[groups_test[g]]
@@ -117,7 +118,6 @@ def run_errors(args, dataset, models):
             print("\tPrepend = {} +/- {}".format(prepend_err, prepend_std))
             #print("\tTreepend = {}".format(treepend_err, treepend_std))
             
-            results[model_name] = {}
             results[model_name][g] = {}
             results[model_name][g]['ERM_ALL'] = (erm_err, erm_std)
             results[model_name][g]['ERM_GROUP'] = (g_erm_err, g_erm_std)
