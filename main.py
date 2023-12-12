@@ -20,8 +20,8 @@ RESULTS_PATH = './results'
 
 # List of base models to use. Specific ones to use are passed as an argument.
 MODELS = [
-    #'LogisticRegression',
-    #'SVMClassifier',
+    'LogisticRegression',
+    'SVMClassifier',
     'DecisionTree2',
     'DecisionTree4',
     'DecisionTree8',
@@ -31,9 +31,9 @@ MODELS = [
     'RandomForest4',
     'RandomForest8',
     'RandomForest16',
-    #'RandomForest',
-    #'XGBoost',
-    #'MLP'
+    'RandomForest',
+    'XGBoost',
+    'MLP'
     ]
 # LogisticRegressionSGD
 
