@@ -316,12 +316,4 @@ def treepend(models, tree, X_train, y_train, groups_train,
                 visited.append(child)
                 queue.append(child)
 
-    # Evaluate the tree (leaves are assumed to be disjoint partitioning)
-    # TODO: finish up evaluation code for Treepend
-    test_err = {}
-    for leaf in leaves:
-        print(leaf.get_group())
-    for g in range(num_groups):
-        X_test[groups_test[g]]
-
-    return tree, test_err
+    return tree

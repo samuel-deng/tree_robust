@@ -32,8 +32,8 @@ MODELS = [
     'RandomForest8',
     'RandomForest16',
     'RandomForest',
-    'XGBoost',
-    'MLP'
+    #'XGBoost',
+    #'MLP'
     ]
 # LogisticRegressionSGD
 
@@ -52,6 +52,38 @@ DATASETS = [
     'coverageNY',
     'coverageTX'
     ]
+
+HIER_DATASETS = [
+    #'incomeCA_rsa',
+    #'incomeCA_ras',
+    #'incomeCA_asr',
+    #'incomeNY_rsa',
+    #'incomeNY_ras',
+    #'incomeNY_asr',
+    #'incomeTX_rsa',
+    #'incomeTX_ras',
+    #'incomeTX_asr',
+
+    #'employmentCA_rsa',
+    'employmentCA_ras',
+    #'employmentCA_asr',
+    #'employmentNY_rsa',
+    #'employmentNY_ras',
+    #'employmentNY_asr',
+    #'employmentTX_rsa',
+    #'employmentTX_ras',
+    #'employmentTX_asr',
+
+    #'coverageCA_rsa',
+    #'coverageCA_ras',
+    #'coverageCA_asr',
+    #'coverageNY_rsa',
+    #'coverageNY_ras',
+    #'coverageNY_asr',
+    #'coverageTX_rsa',
+    #'coverageTX_ras',
+    #'coverageTX_asr',
+]
 
 def save_results(args, datasets, models, results):
     """
@@ -125,6 +157,7 @@ if __name__ == "__main__":
     parser.add_argument('--model', default=-1)
     parser.add_argument('--random_state', default=0, type=int)
     parser.add_argument('--n_cpus', default=16, type=int)
+    parser.add_argument('--hier', action='store_true', default=False)
 
     args = parser.parse_args()
     args.agree = True
@@ -141,6 +174,14 @@ if __name__ == "__main__":
         args.agree = False
     if args.skip_errs:
         args.errs = False
+
+    # Hierarchical clustering experiments
+    if args.hier:
+        if args.dataset == -1: # Run all datasets
+            datasets = HIER_DATASETS
+        else:
+            datasets = [DATASETS[int(args.dataset)]]
+        args.agree = False
 
     results = main(args, datasets, models)
     # save_results(args, datasets, models, results)
