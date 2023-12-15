@@ -146,10 +146,13 @@ def prepend(models, X_train, y_train, groups_train,
     H_train_err = {}
     ng_test = {}
     for g in range(num_groups):
-        H_train[g] = models[g].predict(X_train)
-        H_test[g] = models[g].predict(X_test)
-        H_train_err[g] = np.mean(H_train[g][groups_train[g]] != y_train[groups_train[g]])
-        ng_test[g] = np.sum(groups_test[g])
+        if models[g]:
+            H_train[g] = models[g].predict(X_train)
+            H_test[g] = models[g].predict(X_test)
+            H_train_err[g] = np.mean(H_train[g][groups_train[g]] != y_train[groups_train[g]])
+            ng_test[g] = np.sum(groups_test[g])
+        else:
+            H_train_err[g] = np.inf
     F_train = H_train[0].copy()
     F_test = H_test[0].copy()
     F_train_err = {}
@@ -169,9 +172,12 @@ def prepend(models, X_train, y_train, groups_train,
 
     F_test_err = {}
     for g in range(num_groups):
-        F_test_err[g] = np.mean(F_test[groups_test[g]] != y_test[groups_test[g]])
-        if verbose:
-            print('PREPEND group {0} ({4}): {1} (+/-{2}; n={3})'.format(g, F_test_err[g], std_err(F_test_err[g], ng_test[g]), ng_test[g], group_names[g]))
+        if models[g]:
+            F_test_err[g] = np.mean(F_test[groups_test[g]] != y_test[groups_test[g]])
+            if verbose:
+                print('PREPEND group {0} ({4}): {1} (+/-{2}; n={3})'.format(g, F_test_err[g], std_err(F_test_err[g], ng_test[g]), ng_test[g], group_names[g]))
+        elif verbose:
+            print("PREPEND group {} had no data!".format(g))
 
     return f, F_test_err
 

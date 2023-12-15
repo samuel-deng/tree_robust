@@ -73,7 +73,10 @@ def run_errors(args, dataset, models):
                 params['n_epochs'] = 50
             model = name_to_model(model_name, X.shape[1], params=params)
             
-            model.fit(X_train[groups_train[g]], y_train[groups_train[g]])
+            if np.sum(groups_train[g]) > 0:
+                model.fit(X_train[groups_train[g]], y_train[groups_train[g]])
+            else:
+                model = None
             group_models.append(model)
 
         # Prepend
@@ -98,30 +101,38 @@ def run_errors(args, dataset, models):
         # Evaluate on each group
         results[model_name] = {}
         for g, group_name in enumerate(dataset.group_names):
-            print("\n=== Error on G{}: {} ===\n".format(g, group_name))
-            y_g = y_test[groups_test[g]]
-            erm_pred = group_models[0].predict(X_test[groups_test[g]])
-            g_erm_pred = group_models[g].predict(X_test[groups_test[g]])
-            n_g = np.sum(groups_test[g])
-            
-            erm_err = np.mean(y_g != erm_pred)
-            erm_std = std_err(n_g, erm_err)
-            g_erm_err = np.mean(y_g != g_erm_pred)
-            g_erm_std = std_err(n_g, g_erm_err)
-            prepend_err = declist_errs[g]
-            prepend_std = std_err(n_g, prepend_err)
-            #treepend_err = tree_errs[g]
-            #treepend_std = std_err(n_g, treepend_err)
+            if np.sum(groups_test[g]) == 0 or group_models[g] is None:
+                print("\n=== Error on G{}: {} ===\n".format(g, group_name))
+                print("G{} ({}) has no data!".format(g, group_name))
+                results[model_name][g] = {}
+                results[model_name][g]['ERM_ALL'] = (-1, 0)
+                results[model_name][g]['ERM_GROUP'] = (-1, 0)
+                results[model_name][g]['PREPEND'] = (-1, 0)
+            else:
+                print("\n=== Error on G{}: {} ===\n".format(g, group_name))
+                y_g = y_test[groups_test[g]]
+                erm_pred = group_models[0].predict(X_test[groups_test[g]])
+                n_g = np.sum(groups_test[g])
+                g_erm_pred = group_models[g].predict(X_test[groups_test[g]])
+                
+                erm_err = np.mean(y_g != erm_pred)
+                erm_std = std_err(n_g, erm_err)
+                g_erm_err = np.mean(y_g != g_erm_pred)
+                g_erm_std = std_err(n_g, g_erm_err)
+                prepend_err = declist_errs[g]
+                prepend_std = std_err(n_g, prepend_err)
+                #treepend_err = tree_errs[g]
+                #treepend_std = std_err(n_g, treepend_err)
 
-            print("\tGlobal ERM = {} +/- {}".format(erm_err, erm_std))
-            print("\tGroup ERM = {} +/- {}".format(g_erm_err, g_erm_std))
-            print("\tPrepend = {} +/- {}".format(prepend_err, prepend_std))
-            #print("\tTreepend = {}".format(treepend_err, treepend_std))
-            
-            results[model_name][g] = {}
-            results[model_name][g]['ERM_ALL'] = (erm_err, erm_std)
-            results[model_name][g]['ERM_GROUP'] = (g_erm_err, g_erm_std)
-            results[model_name][g]['PREPEND'] = (prepend_err, prepend_std)
-            #results[model_name][g]['TREEPEND'] = (treepend_err, treepend_std)
+                print("\tGlobal ERM = {} +/- {}".format(erm_err, erm_std))
+                print("\tGroup ERM = {} +/- {}".format(g_erm_err, g_erm_std))
+                print("\tPrepend = {} +/- {}".format(prepend_err, prepend_std))
+                #print("\tTreepend = {}".format(treepend_err, treepend_std))
+                
+                results[model_name][g] = {}
+                results[model_name][g]['ERM_ALL'] = (erm_err, erm_std)
+                results[model_name][g]['ERM_GROUP'] = (g_erm_err, g_erm_std)
+                results[model_name][g]['PREPEND'] = (prepend_err, prepend_std)
+                #results[model_name][g]['TREEPEND'] = (treepend_err, treepend_std)
 
     return results
