@@ -73,7 +73,7 @@ def run_errors(args, dataset, models):
                 params['n_epochs'] = 50
             model = name_to_model(model_name, X.shape[1], params=params)
             
-            if np.sum(groups_train[g]) > 0:
+            if np.sum(groups_train[g]) > 0 and len(np.unique(y_train[groups_train[g]])) > 1:
                 model.fit(X_train[groups_train[g]], y_train[groups_train[g]])
             else:
                 model = None
