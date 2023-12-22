@@ -11,25 +11,10 @@ from mlp import MLPClassifier
 import numpy as np
 import os
 import pickle
+import multiprocessing
 
 from train_utils import std_err
 
-MODELS = [
-    #'LogisticRegression',
-    #'SVMClassifier',
-    'DecisionTree2',
-    'DecisionTree4',
-    'DecisionTree8',
-    'DecisionTree16',
-    'DecisionTree',
-    'RandomForest2',
-    'RandomForest4',
-    'RandomForest8',
-    'RandomForest16',
-    #'RandomForest',
-    #'XGBoost',
-    #'MLP'
-    ]
 PARAM_PATH = "params/"
 
 def name_to_model(model_name, X_dim=None, params=None):
@@ -39,6 +24,8 @@ def name_to_model(model_name, X_dim=None, params=None):
     Args:
         default_params: initializes the model with the default sklearn parameters. If False, initialize with the parameters we found by cross-validating on each group.
     """
+    cores = multiprocessing.cpu_count()
+
     if params == None:
         params = {}
     if model_name == 'LogisticRegression':
@@ -73,23 +60,29 @@ def name_to_model(model_name, X_dim=None, params=None):
     elif model_name == 'RandomForest2':
         params['criterion'] = 'log_loss'
         params['max_depth'] = 2
-        model = DecisionTreeClassifier(**params)
+        params['n_jobs'] = int(cores/2)
+        model = RandomForestClassifier(**params)
     elif model_name == 'RandomForest4':
         params['criterion'] = 'log_loss'
         params['max_depth'] = 4
-        model = DecisionTreeClassifier(**params)
+        params['n_jobs'] = int(cores/2)
+        model = RandomForestClassifier(**params)
     elif model_name == 'RandomForest8':
         params['criterion'] = 'log_loss'
         params['max_depth'] = 8
-        model = DecisionTreeClassifier(**params)
+        params['n_jobs'] = int(cores/2)
+        model = RandomForestClassifier(**params)
     elif model_name == 'RandomForest16':
         params['criterion'] = 'log_loss'
         params['max_depth'] = 16
-        model = DecisionTreeClassifier(**params)
+        params['n_jobs'] = int(cores/2)
+        model = RandomForestClassifier(**params)
     elif model_name == 'RandomForest':
         params['criterion'] = 'log_loss'
+        params['n_jobs'] = int(cores/2)
         model = RandomForestClassifier(**params)
     elif model_name == 'XGBoost':
+        params['nthread'] = int(cores/2)
         model = XGBClassifier(**params)
     elif model_name == 'MLP':
         if X_dim == None:
@@ -181,145 +174,78 @@ def prepend(models, X_train, y_train, groups_train,
 
     return f, F_test_err
 
-'''"
-Simple tree data structure for MGL-Tree.
-
-Each mglTree object is a node in the tree that keeps track of its parent and
-children. 
-
-data: a length-2 list of (group, predictor) that designates the group of the node and its associated predictor. upon initialization (before training), each associated predictor will be None. mglTreePredictor expects an mglTree where each node has None for the predictor.
-children: a list of mglTree objects (each child is also an mglTree).
-parent: an mglTree object. for the root, parent=None.
-root: a Boolean value designating if the mglTree node is the root of the tree.
-fitted: a Boolean value 
-'''
-class mglTree:
-    def __init__(self, data, parent=None):
-        if len(data) != 2:
-            raise Exception("mglTree expects `data` to be a 2-tuple (group, predictor).")
-        self.data = data
-        # check if the node has a predictor associated to it already
-        if data[1] is None:
-            self.fitted = False
-        else:
-            self.fitted = True
-
-        self.children = []
-        self.parent = parent
-        self.root = False
-        self.leaf = False
-
-    def add_child(self, obj):
-        obj.parent = self
-        self.children.append(obj)
-
-    def is_root(self):
-        return self.root
-    
-    def is_leaf(self):
-        return self.leaf
-
-    def is_fitted(self):
-        return self.fitted
-
-    def set_predictor(self, predictor):
-        self.data[1] = predictor
-        self.fitted = True
-
-    def get_group(self):
-        return self.data[0]
-
-    def predict(self, X):
-        if not self.fitted:
-            raise Exception("Cannot predict with mglTree node: not yet fitted!")
-        return self.data[1].predict(X)
-
-    def get_predictor(self):
-        return self.data[1]
-    
-def construct_tree(groups, intersections):
+def treepend(models, tree, X_train, y_train, gps_train,
+             X_test, y_test, gps_test, group_names,
+             epsilon=0, verbose=False):
     """
-    Helper function to create an mglTree out of the disjoint groups in groups and the intersections as the leaves. Only supports treees of 2 levels for now (a bit hacky).
+    Runs the MGL-Tree algorithm for already fitted models in `model`.
 
     Args:
-        groups: Disjoint group indices.
-        intersections: List of tuples of group intersections.
+        models: fitted sklearn-type models with a .fit() and a .predict()
+        tree: a list of lists designating which groups in gps_train and gps_test are in each level of the tree.
+        X_train: full training dataset
+        y_train: full training labels
+        gps_train: list of Boolean arrays for indexing X_train, y_train by group.
+        X_test: full test dataset
+        y_test: full test labels
+        gps_test: list of Boolean arrays for indexing X_test, y_test by group
+        group_names: name for each group
+        epsilon: tolerance for new predictor
     """
-    tree = mglTree([(0, 0), None], parent=None)
-    tree.root = True
-    for g in groups:
-        child_node = mglTree([(g, g), None])
-        tree.add_child(child_node)
-        for inter in intersections:
-            if g in set(inter):
-                inter_node = mglTree([inter, None])
-                inter_node.leaf = True
-                child_node.add_child(inter_node)
-    return tree
+    declist = [0]
+    dectree = [[0] * len(level) for level in tree]
 
-def treepend(models, tree, X_train, y_train, groups_train, 
-            X_test, y_test, groups_test, group_names,
-            epsilon=0, verbose=False):
-    """
-    Runs the Treepend algorithm on a given mglTree and already fitted models in `models`. 
-    """
-    visited = []
-    queue = []
-    leaves = []
-    num_groups = len(groups_train)
+    num_groups = len(gps_train)
     assert(num_groups == len(models))
-    assert(num_groups == len(groups_test))
+    assert(num_groups == len(gps_test))
     assert(num_groups == len(group_names))
 
-    # visit nodes in bfs order
-    visited.append(tree)
-    queue.append(tree)
-    while queue:
-        # tree_node is a (group, predictor) tuple. 
-        tree_node = queue.pop(0)
-        g1, g2 = tree_node.get_group()
-        X_g = X_train[np.array(groups_train[g1]) & np.array(groups_train[g2])]
-        y_g = y_train[np.array(groups_train[g1]) & np.array(groups_train[g2])]
+    H_train = {}     # predictions of group-wise models on training data
+    H_test = {}      # predictions of group-wise models on test data
+    H_train_err = {} # number of groups in test 
+    ng_test = {}     # number of samples in test for a group
 
-        if verbose:
-            print("== group {} ({} examples) ==".format(g, len(X_g)))
-
-        # calculate L(h | g) for current group
-        hg_pred = models[g].predict(X_g)
-        # err_hg = self.loss(hg_pred, y_g)
-        err_hg = np.mean(hg_pred != y_g)
-        if verbose:
-            print("h{} error={}".format(g, err_hg))
-
-        # calculate L(f^{pa(g)} | g) for current group, uses parent node
-        if tree_node.root:  # default to ERM
-            tree_node.set_predictor(models[g])
+    # Get predictions for every model on the train and test set
+    for g in range(num_groups):
+        if models[g]:   # Possible that a group is empty
+            H_train[g] = models[g].predict(X_train)
+            H_test[g] = models[g].predict(X_test)
+            diff = H_train[g][gps_train[g]] != y_train[gps_train[g]]
+            H_train_err[g] = np.mean(diff)
+            ng_test[g] = np.sum(gps_test[g])
         else:
-            if not tree_node.parent.is_fitted():
-                raise Exception("Non-root nodes should all have fitted parents.")
-            parg_pred = tree_node.parent.predict(X_g)
-            err_parg = np.mean(parg_pred != y_g)
+            H_train_err[g] = np.inf
+    
+    # Initialize predictions for the tree predictor
+    F_train = H_train[0].copy()
+    F_test = H_test[0].copy()
+    F_train_err = {}
+    for g in range(num_groups):
+        diff = F_train[gps_train[g]] != y_train[gps_train[g]]
+        F_train_err[g] = np.mean(diff)
+
+    # BFS through the tree
+    for i, level in enumerate(tree):
+        for j, g in enumerate(level):
+            if H_train_err[g] < F_train_err[g] + epsilon:
+                declist.insert(0, g)
+                dectree[i][j] = g
+                F_train[gps_train[g]] = H_train[g][gps_train[g]]
+                F_test[gps_test[g]] = H_test[g][gps_test[g]]
+                for g in range(num_groups):
+                    diff = F_train[gps_train[g]] != y_train[gps_train[g]]
+                    F_train_err[g] = np.mean(diff)
+
+    # Find test error for each group
+    F_test_err = {}
+    for g in range(num_groups):
+        if models[g]:
+            diff = F_test[gps_test[g]] != y_test[gps_test[g]]
+            F_test_err[g] = np.mean(diff)
             if verbose:
-                print("f^(pa){} error={}".format(g, err_parg))
+                print('TREE group {0} ({4}): {1} (+/-{2}; n={3})'.format(
+                    g, F_test_err[g], std_err(F_test_err[g], ng_test[g]), ng_test[g], group_names[g]))
+            elif verbose:
+                print("TREE group {} had no data!".format(g))
 
-            # decide whether to keep parent or update to hg
-            diff_g = err_parg - err_hg - epsilon
-            if diff_g > 0:
-                tree_node.set_predictor(models[g])
-                if verbose:
-                    print("result for group {}: set to h{}.".format(g, g))
-            else:
-                tree_node.set_predictor(tree_node.parent.get_predictor())
-                if verbose:
-                    print("result for group {}: set to parent.".format(g))
-            
-            # in the disjoint case, we can collect the leaves
-            if tree_node.is_leaf():
-                leaves.append(tree_node)
-
-        for child in tree_node.children:
-            if child not in visited:
-                visited.append(child)
-                queue.append(child)
-
-    return tree
+    return declist, dectree, F_test_err

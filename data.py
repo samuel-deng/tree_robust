@@ -7,7 +7,12 @@ from sklearn.compose import ColumnTransformer
 
 from compas_utils import preprocess_compas_df
 from folktables import ACSDataSource, ACSEmployment, ACSIncome, ACSPublicCoverage
-from models import construct_tree
+
+INCOME_CATGEORICAL = ['COW', 'MAR', 'OCCP', 'POBP', 'RELP', 'RAC1P']
+COVERAGE_CATEGORICAL = ['ESP', 'MAR', 'CIT', 'MIG', 'MIL', 
+                      'ANC', 'ESR', 'ST', 'RAC1P']
+EMPLOYMENT_CATEGORICAL = ['MAR', 'RELP', 'ESP', 'CIT', 'MIG', 'MIL', 'ANC',
+                          'DREM', 'RAC1P']
 
 class Dataset:
     """
@@ -20,15 +25,12 @@ class Dataset:
         group_names: List of all group names for the dataset (e.g. "W" or "Y")
         inter_names: List of all intersection names for the dataset (e.g. "(W, M)").
     """
-    def __init__(self, name, X, y, groups, intersections, 
-                 group_names, inter_names, tree):
+    def __init__(self, name, X, y, groups, group_names, tree):
         self.name = name
         self.X = X
         self.y = y
         self.groups = groups
-        self.intersections = intersections
         self.group_names = group_names
-        self.inter_names = inter_names
         self.tree = tree
 
 def adult_gp_indices(df, race_val, sex_val):
@@ -54,89 +56,6 @@ def german_gp_indices(df, sex_val, age_val):
         return np.where((df['sex'] == 1) & (df['age'] == age_val))
     else:
         return np.where((df['sex'] == 0) & (df['age'] == age_val))
-
-def gen_group_pairs(num_groups, folktables=False):
-    erm_group_pairs = list()
-    group_pairs = list()
-    group_pairs_cond = list()
-
-    if num_groups == 9:
-        # append G0 (ALL) paired with all other groups
-        for i in range(1, num_groups):
-            erm_group_pairs.append((0, i))
-
-        # append pairs intersecting at G1 (W,M)
-        group_pairs.append((1,5))
-        group_pairs_cond.append(1)
-        group_pairs.append((5,7))
-        group_pairs_cond.append(1)
-        group_pairs.append((1,7))
-        group_pairs_cond.append(1)
-
-        # append pairs intersecting at G2 (W,F)
-        group_pairs.append((2,5))
-        group_pairs_cond.append(2)
-        group_pairs.append((5,8))
-        group_pairs_cond.append(2)
-        group_pairs.append((2,8))
-        group_pairs_cond.append(2)
-
-        # append pairs intersecting at G3 (nW,M)
-        group_pairs.append((3,6))
-        group_pairs_cond.append(3)
-        group_pairs.append((6,7))
-        group_pairs_cond.append(3)
-        group_pairs.append((3,7))
-        group_pairs_cond.append(3)
-
-        # append pairs intersecting at G4 (nW,F)
-        group_pairs.append((4,6))
-        group_pairs_cond.append(4)
-        group_pairs.append((6,8))
-        group_pairs_cond.append(4)
-        group_pairs.append((4,8))
-        group_pairs_cond.append(4)
-
-    # For Folktables datasets
-    elif folktables:
-        # append G0 (ALL) paired with all other groups
-        for i in range(1, num_groups):
-            erm_group_pairs.append((0, i))
-
-        # Race-Sex Group Intersections
-        race_sex_pairs = list()
-        race_sex_cond = list()
-        for r in range(1, 8):
-            race_sex_pairs.append((r, 8)) # (race, S1)
-            race_sex_cond.append(11 + (2 * r - 1))
-            race_sex_pairs.append((r, 9)) # (race, S2)
-            race_sex_cond.append(12 + (2 * r - 1))
-
-        # Race-Age Group Intersections
-        race_age_pairs = list()
-        race_age_cond = list()
-        for r in range(1, 8):
-            race_age_pairs.append((r, 10)) # (race, A1)
-            race_age_cond.append(25 + (2 * r - 1))
-            race_age_pairs.append((r, 11)) # (race, A2)
-            race_age_cond.append(26 + (2 * r - 1))
-
-        # Sex-Age Group Intersections
-        sex_age_pairs = list()
-        sex_age_cond = list()
-        sex_age_pairs.append((8, 10))
-        sex_age_cond.append(40)
-        sex_age_pairs.append((8, 11))
-        sex_age_cond.append(41)
-        sex_age_pairs.append((9, 10))
-        sex_age_cond.append(42)
-        sex_age_pairs.append((9, 11))
-        sex_age_cond.append(43)
-
-        group_pairs = (race_sex_pairs, race_age_pairs, sex_age_pairs)
-        group_pairs_cond = (race_sex_cond, race_age_cond, sex_age_cond)
-
-    return erm_group_pairs, group_pairs, group_pairs_cond
 
 def construct_hier(groups, group_names):
     '''
@@ -492,273 +411,102 @@ def preprocess_german(train_path='datasets/german/german.data'):
                       group_names, inter_names, trees)
     return dataset
 
-def preprocess_employment(year='2016', horizon='1-Year', states=["CA"],
-                          hier=None):
-    data_source = ACSDataSource(survey_year=year, horizon=horizon, survey='person')
-    acs_data = data_source.get_data(states=states, download=True)
-    X, y, group = ACSEmployment.df_to_numpy(acs_data)
+def preprocess_folktables(task, state, hier):
+    """
+    Returns a Dataset object given a folktables task, state, and hierarchy of groups.
+    """
+    data_source = ACSDataSource(survey_year="2016", horizon="1-Year",
+                                survey='person')
+    acs_data = data_source.get_data(states=[state], download=True)
+    if task == 'income':
+        X, y, group = ACSIncome.df_to_numpy(acs_data)
+        feature_names = ACSIncome.features
+        to_one_hot = set(INCOME_CATGEORICAL)
+    elif task == 'coverage':
+        X, y, group = ACSPublicCoverage.df_to_numpy(acs_data)
+        feature_names = ACSPublicCoverage.features
+        to_one_hot = set(COVERAGE_CATEGORICAL)
+    elif task == 'employment':
+        X, y, group = ACSEmployment.df_to_numpy(acs_data)
+        feature_names = ACSEmployment.features
+        to_one_hot = set(EMPLOYMENT_CATEGORICAL)
+
+    else:
+        raise ValueError("Task for folktables invalid!")
+    
+    # Construct groups
     sex = X[:, -2]
-    old = (X[:,0] > 65)
+    young = (X[:,0] < 35)
+    mid = np.logical_and(X[:,0] >= 35, X[:,0] < 60)
+    old = (X[:,0] >= 60)
+
+    sch_lhs = X[:,2] <= 15
+    sch_hs = (X[:,2] > 15) & (X[:,2] < 20)
+    sch_col = (X[:,2] >= 20) & (X[:,2] < 22)
+    sch_adv = (X[:,2] >= 22)
 
     # 12 groups (including ALL)
     ALL = [True] * y.shape[0]
     race_groups = []
+    # Get race groups, combining (R3, R4, R5) and (R6, R7)
     for g in np.unique(group):
-        if g == 4 or g == 5: # group is too small
+        if g == 3:  # R3 (American-Indian)
+            R34 = np.logical_or(group == 3, group == 4)
+            race_groups.append(np.logical_or(R34, group == 5))
+        elif g == 6: # R6 (Asian)
+            race_groups.append(np.logical_or(group == 6, group == 7))
+        elif g == 4 or g == 5 or g == 7: # group is too small
             continue
-        race_groups.append(group == g)
-    race_group_names = ["R1", "R2", "R3", "R6", "R7", "R8", "R9"]
+        else:
+            race_groups.append(group == g)
+    race_group_names = ["R1", "R2", "R3+", "R6+", "R7", "R8", "R9"]
     sex_groups = [sex == 1, sex == 2]
     sex_group_names = ["M", "F"]
-    age_groups = [old == False, old == True]
-    age_group_names = ["Y", "O"]
+    age_groups = [young, mid, old]
+    age_group_names = ["Ya", "Ma", "Oa"]
+    school_groups = [sch_lhs, sch_hs, sch_col, sch_adv]
+    school_group_names = ["HS-", "HS", "COL", "COL+"]
 
-    if hier == 'RACE-SEX':
+    if hier == 'rsa':
         groups, group_names, tree = construct_hier([[ALL], race_groups,
                                                     sex_groups, age_groups],[["ALL"], race_group_names, sex_group_names,age_group_names])
-    elif hier == 'RACE-AGE':       
+    elif hier == 'ras':       
         groups, group_names, tree = construct_hier([[ALL], race_groups,
                                                     age_groups, sex_groups],[["ALL"], race_group_names, age_group_names, sex_group_names])
-    elif hier == 'AGE-SEX':
+    elif hier == 'asr':
         groups, group_names, tree = construct_hier([[ALL], age_groups,
                                                     sex_groups, race_groups],[["ALL"], age_group_names, sex_group_names, race_group_names])
-    elif hier == None:
-        groups = []
-        group_names = ["ALL", "R1", "R2", "R3", "R6", "R7", "R8", "R9", 
-                "M", "F", "Y", "O"]
-        for g in np.unique(group):
-                if g == 4 or g == 5: # group is too small
-                    continue
-                groups.append(group == g)
-        groups.append(sex == 1) # index: 8
-        groups.append(sex == 2) # index: 9
-        groups.append(old == False) # index: 10
-        groups.append(old == True) # index: 11
+    elif hier == "ers":
+        groups, group_names, tree = construct_hier([[ALL], school_groups,
+                                                    race_groups, sex_groups],[["ALL"], school_group_names, race_group_names, sex_group_names])
+    elif hier == "esr":
+        groups, group_names, tree = construct_hier([[ALL], school_groups,
+                                                    sex_groups, race_groups],[["ALL"], school_group_names, sex_group_names, race_group_names])
+    elif hier == "res":
+        groups, group_names, tree = construct_hier([[ALL], race_groups,
+                                                    school_groups, sex_groups],[["ALL"], race_group_names, school_group_names, sex_group_names])
+    elif hier == "ser":
+        groups, group_names, tree = construct_hier([[ALL], sex_groups,
+                                                    school_groups, race_groups],[["ALL"], sex_group_names, school_group_names, race_group_names])
     else:
-        raise ValueError('hier must be RACE-SEX, RACE-AGE, or AGE-SEX!')
-
-    # Additional groups for pair-wise intersections
-    intersections = []
-    race_sex_intersections = []
-    race_age_intersections = []
-    sex_age_intersections = []
-    inter_names = []
-
-    for r in range(1, 8):
-        inter_names.append("({},{})".format(group_names[r], "M"))
-        intersections.append((r, 8))
-        race_sex_intersections.append((r,8))
-        inter_names.append("({},{})".format(group_names[r], "F"))
-        intersections.append((r, 9))
-        race_sex_intersections.append((r,9))
-
-    for r in range(1, 8):
-        inter_names.append("({},{})".format(group_names[r], "Y"))
-        intersections.append((r, 10))
-        race_age_intersections.append((r,10))
-        inter_names.append("({},{})".format(group_names[r], "O"))
-        intersections.append((r, 11))
-        race_age_intersections.append((r,11))
-
-    for s in range(8, 10):
-        for a in range(10, 12):
-            inter_names.append("({},{})".format(
-                group_names[s], group_names[a]))
-            intersections.append((s, a))
-            sex_age_intersections.append((s,a))
-
-    to_one_hot = set(['MAR', 'RELP', 'ESP', 'CIT', 'MIG', 'MIL', 'ANC', 'DREM', 'RAC1P'])
-    to_leave_alone = set(ACSEmployment.features) - to_one_hot
-    one_hot_inds = [i for i, x in enumerate(ACSEmployment.features) if x in to_one_hot]
-    leave_alone_inds = [i for i, x in enumerate(ACSEmployment.features) if x in to_leave_alone]
+        raise ValueError('hier must be specified!')
+    
+    to_leave_alone = set(feature_names) - to_one_hot
+    one_hot_inds = [i for i, x in enumerate(feature_names) if x in to_one_hot]
+    leave_alone_inds = [i for i, x in enumerate(feature_names) if x in to_leave_alone]
 
     steps = [('onehot', OneHotEncoder(handle_unknown='ignore'), one_hot_inds), ('num', StandardScaler(), leave_alone_inds)]
     col_transf = ColumnTransformer(steps)
     X = col_transf.fit_transform(X)
-    name = "employment{}".format(states[0])
-    dataset = Dataset(name, X, y, groups, intersections, 
-                      group_names, inter_names, tree)
-    return dataset
-
-def preprocess_income(year='2016', horizon='1-Year', states=["CA"], hier=False):
-    data_source = ACSDataSource(survey_year=year, horizon=horizon, survey='person')
-    acs_data = data_source.get_data(states=states, download=True)
-    X, y, group = ACSIncome.df_to_numpy(acs_data)
-    sex = X[:, -2]
-    old = (X[:,0] > 65)
-
-    # 12 groups (including ALL)
-    ALL = [True] * y.shape[0]
-    race_groups = []
-    for g in np.unique(group):
-        if g == 4 or g == 5: # group is too small
-            continue
-        race_groups.append(group == g)
-    race_group_names = ["R1", "R2", "R3", "R6", "R7", "R8", "R9"]
-    sex_groups = [sex == 1, sex == 2]
-    sex_group_names = ["M", "F"]
-    age_groups = [old == False, old == True]
-    age_group_names = ["Y", "O"]
-
-    if hier == 'RACE-SEX':
-        groups, group_names, tree = construct_hier([[ALL], race_groups,
-                                                    sex_groups, age_groups],[["ALL"], race_group_names, sex_group_names,age_group_names])
-    elif hier == 'RACE-AGE':       
-        groups, group_names, tree = construct_hier([[ALL], race_groups,
-                                                    age_groups, sex_groups],[["ALL"], race_group_names, age_group_names, sex_group_names])
-    elif hier == 'AGE-SEX':
-        groups, group_names, tree = construct_hier([[ALL], age_groups,
-                                                    sex_groups, race_groups],[["ALL"], age_group_names, sex_group_names, race_group_names])
-    elif hier == None:
-        groups = []
-        group_names = ["ALL", "R1", "R2", "R3", "R6", "R7", "R8", "R9", 
-                "M", "F", "Y", "O"]
-        for g in np.unique(group):
-                if g == 4 or g == 5: # group is too small
-                    continue
-                groups.append(group == g)
-        groups.append(sex == 1) # index: 8
-        groups.append(sex == 2) # index: 9
-        groups.append(old == False) # index: 10
-        groups.append(old == True) # index: 11
-    else:
-        raise ValueError('hier must be RACE-SEX, RACE-AGE, or AGE-SEX!')
-
-    # Additional groups for pair-wise intersections
-    intersections = []
-    race_sex_intersections = []
-    race_age_intersections = []
-    sex_age_intersections = []
-    inter_names = []
-
-    for r in range(1, 8):
-        inter_names.append("({},{})".format(group_names[r], "M"))
-        intersections.append((r, 8))
-        race_sex_intersections.append((r,8))
-        inter_names.append("({},{})".format(group_names[r], "F"))
-        intersections.append((r, 9))
-        race_sex_intersections.append((r,9))
-
-    for r in range(1, 8):
-        inter_names.append("({},{})".format(group_names[r], "Y"))
-        intersections.append((r, 10))
-        race_age_intersections.append((r,10))
-        inter_names.append("({},{})".format(group_names[r], "O"))
-        intersections.append((r, 11))
-        race_age_intersections.append((r,11))
-
-    for s in range(8, 10):
-        for a in range(10, 12):
-            inter_names.append("({},{})".format(
-                group_names[s], group_names[a]))
-            intersections.append((s, a))
-            sex_age_intersections.append((s,a))
-
-    to_one_hot = set(['COW', 'MAR', 'OCCP', 'POBP', 'RELP', 'RAC1P'])
-    to_leave_alone = set(ACSIncome.features) - to_one_hot
-    one_hot_inds = [i for i, x in enumerate(ACSIncome.features) if x in to_one_hot]
-    leave_alone_inds = [i for i, x in enumerate(ACSIncome.features) if x in to_leave_alone]
-
-    steps = [('onehot', OneHotEncoder(handle_unknown='ignore'), one_hot_inds), ('num', StandardScaler(), leave_alone_inds)]
-    col_transf = ColumnTransformer(steps)
-    X = col_transf.fit_transform(X)
-    name = "income{}".format(states[0])
-    dataset = Dataset(name, X, y, groups, intersections, 
-                      group_names, inter_names, tree)
-    return dataset
-
-def preprocess_coverage(year='2016', horizon='1-Year', states=['CA'],
-                        hier=None):
-    data_source = ACSDataSource(survey_year=year, horizon=horizon, survey='person')
-    acs_data = data_source.get_data(states=states, download=True)
-    X, y, group = ACSPublicCoverage.df_to_numpy(acs_data)
-    old = (X[:,0] > 32)
-    sex = X[:, 3]
-
-    ALL = [True] * y.shape[0]
-    race_groups = []
-    for g in np.unique(group):
-        if g == 4 or g == 5: # group is too small
-            continue
-        race_groups.append(group == g)
-    race_group_names = ["R1", "R2", "R3", "R6", "R7", "R8", "R9"]
-    sex_groups = [sex == 1, sex == 2]
-    sex_group_names = ["M", "F"]
-    age_groups = [old == False, old == True]
-    age_group_names = ["Y", "O"]
-
-    if hier == 'RACE-SEX':
-        groups, group_names, tree = construct_hier([[ALL], race_groups,
-                                                    sex_groups, age_groups],[["ALL"], race_group_names, sex_group_names,age_group_names])
-    elif hier == 'RACE-AGE':       
-        groups, group_names, tree = construct_hier([[ALL], race_groups,
-                                                    age_groups, sex_groups],[["ALL"], race_group_names, age_group_names, sex_group_names])
-    elif hier == 'AGE-SEX':
-        groups, group_names, tree = construct_hier([[ALL], age_groups,
-                                                    sex_groups, race_groups],[["ALL"], age_group_names, sex_group_names, race_group_names])
-    elif hier == None:
-        groups = []
-        group_names = ["ALL", "R1", "R2", "R3", "R6", "R7", "R8", "R9", 
-                "M", "F", "Y", "O"]
-        for g in np.unique(group):
-                if g == 4 or g == 5: # group is too small
-                    continue
-                groups.append(group == g)
-        groups.append(sex == 1) # index: 8
-        groups.append(sex == 2) # index: 9
-        groups.append(old == False) # index: 10
-        groups.append(old == True) # index: 11
-    else:
-        raise ValueError('hier must be RACE-SEX, RACE-AGE, or AGE-SEX!')
-
-    # Pair-wise intersections
-    intersections = []
-    race_sex_intersections = []
-    race_age_intersections = []
-    sex_age_intersections = []
-    inter_names = []
-
-    for r in range(1, 8):
-        inter_names.append("({},{})".format(group_names[r], "M"))
-        intersections.append((r, 8))
-        race_sex_intersections.append((r,8))
-        inter_names.append("({},{})".format(group_names[r], "F"))
-        intersections.append((r, 9))
-        race_sex_intersections.append((r,9))
-
-    for r in range(1, 8):
-        inter_names.append("({},{})".format(group_names[r], "Y"))
-        intersections.append((r, 10))
-        race_age_intersections.append((r,10))
-        inter_names.append("({},{})".format(group_names[r], "O"))
-        intersections.append((r, 11))
-        race_age_intersections.append((r,11))
-
-    for s in range(8, 10):
-        for a in range(10, 12):
-            inter_names.append("({},{})".format(
-                group_names[s], group_names[a]))
-            intersections.append((s, a))
-            sex_age_intersections.append((s,a))
-
-    to_one_hot = set(['ESP', 'MAR', 'CIT', 'MIG', 'MIL', 
-                    'ANC', 'ESR', 'ST', 'RAC1P'])
-    to_leave_alone = set(ACSPublicCoverage.features) - to_one_hot
-    one_hot_inds = [i for i, x in enumerate(ACSPublicCoverage.features) if x in to_one_hot]
-    leave_alone_inds = [i for i, x in enumerate(ACSPublicCoverage.features) if x in to_leave_alone]
-
-    steps = [('onehot', OneHotEncoder(handle_unknown='ignore'), one_hot_inds), ('num', StandardScaler(), leave_alone_inds)]
-    col_transf = ColumnTransformer(steps)
-    X = col_transf.fit_transform(X)
-    name = "coverage{}".format(states[0])
-    dataset = Dataset(name, X, y, groups, intersections, 
-                        group_names, inter_names, tree)
+    dataset = Dataset(task + state, X, y, groups, group_names, tree)
     return dataset
 
 def name_to_dataset(dataset):
     """
     Takes a dataset name and outputs the preprocessed dataset as a Dataset object with X, y, groups, intersections, group_names, and inter_names.
     """
+    splits = dataset.split("_")
+
     if dataset == 'adult':
         dataset = preprocess_adult()
     elif dataset == 'compas':
@@ -767,120 +515,11 @@ def name_to_dataset(dataset):
         dataset = preprocess_communities()
     elif dataset == 'german':
         dataset = preprocess_german()
-
-    elif dataset == 'employmentCA':
-        dataset = preprocess_employment()
-    elif dataset == 'employmentCA_rsa':
-        dataset = preprocess_employment(hier='RACE-SEX')
-    elif dataset == 'employmentCA_ras':
-        dataset = preprocess_employment(hier='RACE-AGE')
-    elif dataset == 'employmentCA_asr':
-        dataset = preprocess_employment(hier='AGE-SEX')
-
-    elif dataset == 'employmentNY':
-        dataset = preprocess_employment(states=['NY'])
-    elif dataset == 'employmentNY_rsa':
-        dataset = preprocess_employment(states=['NY'], hier='RACE-SEX')
-    elif dataset == 'employmentNY_ras':
-        dataset = preprocess_employment(states=['NY'], hier='RACE-AGE')
-    elif dataset == 'employmentNY_asr':
-        dataset = preprocess_employment(states=['NY'], hier='AGE-SEX')
-
-    elif dataset == 'employmentTX':
-        dataset = preprocess_employment(states=['TX'])
-    elif dataset == 'employmentTX_rsa':
-        dataset = preprocess_employment(states=['TX'], hier='RACE-SEX')
-    elif dataset == 'employmentTX_ras':
-        dataset = preprocess_employment(states=['TX'], hier='RACE-AGE')
-    elif dataset == 'employmentTX_asr':
-        dataset = preprocess_employment(states=['TX'], hier='AGE-SEX')
-
-    elif dataset == 'incomeCA':
-        dataset = preprocess_income()
-    elif dataset == 'incomeCA_rsa':
-        dataset = preprocess_income(hier='RACE-SEX')
-    elif dataset == 'incomeCA_ras':
-        dataset = preprocess_income(hier='RACE-AGE')
-    elif dataset == 'incomeCA_asr':
-        dataset = preprocess_income(hier='AGE-SEX')
-
-    elif dataset == 'incomeNY':
-        dataset = preprocess_income(states=['NY'])
-    elif dataset == 'incomeNY_rsa':
-        dataset = preprocess_income(states=['NY'],hier='RACE-SEX')
-    elif dataset == 'incomeNY_ras':
-        dataset = preprocess_income(states=['NY'],hier='RACE-AGE')
-    elif dataset == 'incomeNY_asr':
-        dataset = preprocess_income(states=['NY'],hier='AGE-SEX')
-    
-    elif dataset == 'incomeTX':
-        dataset = preprocess_income(states=['TX'])
-    elif dataset == 'incomeTX_rsa':
-        dataset = preprocess_income(states=['TX'],hier='RACE-SEX')
-    elif dataset == 'incomeTX_ras':
-        dataset = preprocess_income(states=['TX'],hier='RACE-AGE')
-    elif dataset == 'incomeTX_asr':
-        dataset = preprocess_income(states=['TX'],hier='AGE-SEX')
-
-    elif dataset == 'coverageCA':
-        dataset = preprocess_coverage()
-    elif dataset == 'coverageCA_rsa':
-        dataset = preprocess_coverage(hier='RACE-SEX')
-    elif dataset == 'coverageCA_ras':
-        dataset = preprocess_coverage(hier='RACE-AGE')
-    elif dataset == 'coverageCA_asr':
-        dataset = preprocess_coverage(hier='AGE-SEX')
-
-    elif dataset == 'coverageNY':
-        dataset = preprocess_coverage(states=['NY'])
-    elif dataset == 'coverageNY_rsa':
-        dataset = preprocess_coverage(states=['NY'],hier='RACE-SEX')
-    elif dataset == 'coverageNY_ras':
-        dataset = preprocess_coverage(states=['NY'],hier='RACE-AGE')
-    elif dataset == 'coverageNY_asr':
-        dataset = preprocess_coverage(states=['NY'],hier='AGE-SEX')
-
-    elif dataset == 'coverageTX':
-        dataset = preprocess_coverage(states=['TX'])
-    elif dataset == 'coverageTX_rsa':
-        dataset = preprocess_coverage(states=['TX'],hier='RACE-SEX')
-    elif dataset == 'coverageTX_ras':
-        dataset = preprocess_coverage(states=['TX'],hier='RACE-AGE')
-    elif dataset == 'coverageTX_asr':
-        dataset = preprocess_coverage(states=['TX'],hier='AGE-SEX')
+    elif len(splits) == 3:
+        task = splits[0]
+        state = splits[1]
+        hier = splits[2]
+        dataset = preprocess_folktables(task, state, hier)
     else:
         raise ValueError("Dataset: {} is not valid!".format(dataset))
     return dataset
-
-
-
-    # 12 groups (including ALL)
-    '''
-    # Race Groups
-    group_names = ["ALL", "R1", "R2", "R3", "R6", "R7", "R8", "R9"]
-    tree.append([])
-    for g in np.unique(group): # indices: 1 -> 7
-        if g == 4 or g == 5: # group is too small
-            continue
-        groups.append(group == g)
-        tree[1].append(len(groups) - 1)
-
-    # Race-Sex Intersections
-    for i, r in enumerate(groups[1:]):
-        groups.append(r & A1)
-        group_names.append("({},{})".format(group_names[i + 1], "Y"))
-        tree[2].append(len(groups) - 1)
-        groups.append(r & A2)
-        group_names.append("({},{})".format(group_names[i + 1], "O"))
-        tree[2].append(len(groups) - 1)
-
-    # Race-Sex-Age Intersections
-    tree.append([])
-    for i in tree[2]:
-        groups.append(S1 & groups[i])
-        group_names.append("({},{})".format(group_names[i], "M"))
-        tree[3].append(len(groups) - 1)
-        groups.append(S2 & groups[i])
-        group_names.append("({},{})".format(group_names[i], "F"))
-        tree[3].append(len(groups) - 1)
-    '''
