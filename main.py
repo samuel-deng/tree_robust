@@ -53,8 +53,20 @@ DATASETS = [
     'coverageTX'
     ]
 
+# For multiple state experiments
+STATE_DATASETS = [
+    'income_ST_r',
+    'income_ST_s',
+    'employment_ST_r',
+    'employment_ST_s',
+    'coverage_ST_r',
+    'coverage_ST_s'
+]
+
+# For single state experiments
 HIER_TYPES = ['rsa', 'ras', 'asr', 'ers', 'esr', 'res', 'rse']
-HIER_STATES = ['CA', 'NY', 'TX', 'MI', 'WY', 'WI', 'IN', 'FL']
+HIER_STATES = ['MA', 'CT', 'NY', 'PA', 'IL', 'OH', 'MO', 'MN', 'FL', 'GA',
+                 'TN', 'AL', 'TX', 'LA', 'AZ', 'CO', 'CA', 'WA']
 HIER_TASKS = ['income', 'coverage', 'employment']
 
 def save_result(models, results, path):
@@ -88,7 +100,7 @@ def main(args, datasets, models):
         if args.errs:
             print("\n=== Errors on dataset: {} ===".format(dataset_name))
             errs_results = run_errors(args, dataset, models)
-            save_result(models, errs_results, 'errors/{}'.format(dataset_name))
+            save_result(models, errs_results, dataset_name)
 
     return results
 
@@ -113,13 +125,20 @@ if __name__ == "__main__":
 
     # Hierarchical clustering experiments
     if args.hier:
-        if args.dataset: # Run all datasets
+        if args.dataset:
             datasets = [args.dataset]
         else:
             datasets = []
+
+            # Hierarchical datasets for task/state/type
             data_combos = itertools.product(HIER_TASKS, HIER_STATES, HIER_TYPES)
             for task, state, hier in data_combos:
                 datasets.append(task + "_" + state + "_" + hier)
+
+            # Hierarchical datasets for region/state/sensitive
+            datasets = datasets + STATE_DATASETS 
+
+            # Hierarchical datasets for 
 
     args.agree = False
     results = main(args, datasets, models)

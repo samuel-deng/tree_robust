@@ -31,7 +31,7 @@ def run_errors(args, dataset, models):
     X = scaler.fit_transform(X)
 
     splits = train_test_split(*tuple([X, y] + dataset.groups), 
-                              test_size=0.2, random_state=args.random_state)
+                              test_size=0.15, random_state=args.random_state)
     X_train = splits[0]
     X_test = splits[1]
     y_train = splits[2]

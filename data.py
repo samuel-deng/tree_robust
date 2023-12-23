@@ -515,7 +515,11 @@ def name_to_dataset(dataset):
         dataset = preprocess_communities()
     elif dataset == 'german':
         dataset = preprocess_german()
-    elif len(splits) == 3:
+    elif len(splits) == 3 and splits[2] == 'ST':
+        task = splits[0]
+        sens = splits[2]
+        dataset = preprocess_folkstates(task, sens)
+    elif len(splits) == 3 and splits[2] != 'ST':
         task = splits[0]
         state = splits[1]
         hier = splits[2]
