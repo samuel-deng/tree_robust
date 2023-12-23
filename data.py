@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import os
 import itertools
 
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder, StandardScaler
@@ -13,6 +14,16 @@ COVERAGE_CATEGORICAL = ['ESP', 'MAR', 'CIT', 'MIG', 'MIL',
                       'ANC', 'ESR', 'ST', 'RAC1P']
 EMPLOYMENT_CATEGORICAL = ['MAR', 'RELP', 'ESP', 'CIT', 'MIG', 'MIL', 'ANC',
                           'DREM', 'RAC1P']
+
+region_names = ['NORTHEAST', 'MIDWEST', 'SOUTH', 'WEST']
+region_vals = [1, 2, 3, 4]
+division_names = ['NewEngland', 'MidAtlantic', 'EastNorthCentral',
+                  'WestNorthCentral', 'SouthAtlantic', 'EastSouthCentral',
+                  'WestSouthCentral', 'Mountain', 'Pacific']
+division_vals = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+state_names = ['MA', 'CT', 'NY', 'PA', 'IL', 'OH', 'MO', 'MN', 'FL', 'GA',
+                 'TN', 'AL', 'TX', 'LA', 'AZ', 'CO', 'CA', 'WA']
+state_vals = [25, 9, 36, 42, 17, 39, 29, 27, 12, 13, 47, 1, 48, 22, 4, 8, 6, 53]
 
 class Dataset:
     """
@@ -57,7 +68,7 @@ def german_gp_indices(df, sex_val, age_val):
     else:
         return np.where((df['sex'] == 0) & (df['age'] == age_val))
 
-def construct_hier(groups, group_names):
+def construct_hier(groups, group_names, skip_empty=False):
     '''
     Helper function for constructing the hierarchical partitioning for the Folktables datasets. 'groups' takes a list of lists of group membership arrays (Boolean np.arrays).
     '''
@@ -79,14 +90,28 @@ def construct_hier(groups, group_names):
             for j, g_prev_index in enumerate(tree[level - 1]):
                 g_prev = hier_groups[g_prev_index]
                 for i, g in enumerate(groups[level]):
-                    hier_groups.append(g & g_prev)
-                    tree[level].append(len(hier_groups) - 1)
-                    if hier_group_names[tree[level - 1][j]] == 'ALL':
-                        hier_group_names.append(group_names[level][i])
+                    if skip_empty:
+                        overlap = np.sum(g & g_prev)
+                        if overlap == 0:
+                            continue
+                        else:
+                            hier_groups.append(g & g_prev)
+                            tree[level].append(len(hier_groups) - 1)
+                            if hier_group_names[tree[level - 1][j]] == 'ALL':
+                                hier_group_names.append(group_names[level][i])
+                            else:
+                                hier_group_names.append(
+                                    hier_group_names[tree[level - 1][j]] + "," 
+                                + group_names[level][i])
                     else:
-                        hier_group_names.append(
-                            hier_group_names[tree[level - 1][j]] + "," 
-                            + group_names[level][i])
+                        hier_groups.append(g & g_prev)
+                        tree[level].append(len(hier_groups) - 1)
+                        if hier_group_names[tree[level - 1][j]] == 'ALL':
+                            hier_group_names.append(group_names[level][i])
+                        else:
+                            hier_group_names.append(
+                                hier_group_names[tree[level - 1][j]] + "," 
+                                + group_names[level][i])
     
     return hier_groups, hier_group_names, tree
 
@@ -506,6 +531,88 @@ def preprocess_folktables(task, state, hier):
     dataset = Dataset(task + state, X, y, groups, group_names, tree)
     return dataset
 
+def preprocess_folkstates(task, sens, path='data/'):
+    df = pd.read_csv(os.path.join(path, 'states.csv'))
+    if task == 'income':
+        ACSIncomeNew = ACSIncome
+        ACSIncomeNew.features.extend(['DIV', 'REG', 'ST'])
+        X, y, group = ACSIncomeNew.df_to_numpy(df)
+        feature_names = ACSIncomeNew.features
+        to_one_hot = set(INCOME_CATGEORICAL + ['DIV', 'REG', 'ST'])
+    elif task == 'coverage':
+        ACSPublicCoverageNew = ACSPublicCoverage
+        ACSPublicCoverageNew.features.extend(['DIV', 'REG', 'ST'])
+        X, y, group = ACSPublicCoverageNew.df_to_numpy(df)
+        feature_names = ACSPublicCoverageNew.features
+        to_one_hot = set(COVERAGE_CATEGORICAL + ['DIV', 'REG', 'ST'])
+    elif task == 'employment':
+        ACSEmploymentNew = ACSEmployment
+        ACSEmploymentNew.features.extend(['DIV', 'REG', 'ST'])
+        X, y, group = ACSEmploymentNew.df_to_numpy(df)
+        feature_names = ACSEmploymentNew.features
+        to_one_hot = set(EMPLOYMENT_CATEGORICAL + ['DIV', 'REG', 'ST'])
+
+    sex_idx = feature_names.index('SEX')
+    st_idx = feature_names.index('ST')
+    reg_idx = feature_names.index('REG')
+    div_idx = feature_names.index('DIV')
+
+    sex = X[:, sex_idx]
+    state = X[:, st_idx]
+    region = X[:, reg_idx]
+    div = X[:, div_idx]
+
+    region_groups = []
+    for val in region_vals:
+        region_groups.append(region == val)
+
+    div_groups = []
+    for val in division_vals:
+        div_groups.append(div == val)
+
+    state_groups = []
+    for val in state_vals:
+        state_groups.append(state == val)
+
+    ALL = [True] * y.shape[0]
+    race_groups = []
+    # Get race groups, combining (R3, R4, R5) and (R6, R7)
+    for g in np.unique(group):
+        if g == 3:  # R3 (American-Indian)
+            R34 = np.logical_or(group == 3, group == 4)
+            race_groups.append(np.logical_or(R34, group == 5))
+        elif g == 6: # R6 (Asian)
+            race_groups.append(np.logical_or(group == 6, group == 7))
+        elif g == 4 or g == 5 or g == 7: # group is too small
+            continue
+        else:
+            race_groups.append(group == g)
+    race_group_names = ["R1", "R2", "R3+", "R6+", "R7", "R8", "R9"]
+    sex_groups = [sex == 1, sex == 2]
+    sex_group_names = ["M", "F"]
+
+    if sens == 'sex':
+        groups, group_names, tree = construct_hier([[ALL], region_groups,
+                                                    div_groups, state_groups, sex_groups],
+                                                    [["ALL"], region_names, division_names, state_names, sex_group_names], skip_empty=True)
+    elif sens == 'race':
+        groups, group_names, tree = construct_hier([[ALL], region_groups,
+                                                    div_groups, state_groups, race_groups],
+                                                    [["ALL"], region_names, division_names, state_names, race_group_names], skip_empty=True)
+    else:
+        raise ValueError("Invalid sens attribute={}".format(sens))
+
+    
+    to_leave_alone = set(feature_names) - to_one_hot
+    one_hot_inds = [i for i, x in enumerate(feature_names) if x in to_one_hot]
+    leave_alone_inds = [i for i, x in enumerate(feature_names) if x in to_leave_alone]
+
+    steps = [('onehot', OneHotEncoder(handle_unknown='ignore'), one_hot_inds), ('num', StandardScaler(), leave_alone_inds)]
+    col_transf = ColumnTransformer(steps)
+    X = col_transf.fit_transform(X)
+    dataset = Dataset(task + "ST", X, y, groups, group_names, tree)
+    return dataset
+
 def name_to_dataset(dataset):
     """
     Takes a dataset name and outputs the preprocessed dataset as a Dataset object with X, y, groups, intersections, group_names, and inter_names.
@@ -520,11 +627,11 @@ def name_to_dataset(dataset):
         dataset = preprocess_communities()
     elif dataset == 'german':
         dataset = preprocess_german()
-    elif len(splits) == 3 and splits[2] == 'ST':
+    elif len(splits) == 3 and splits[1] == 'ST':
         task = splits[0]
         sens = splits[2]
         dataset = preprocess_folkstates(task, sens)
-    elif len(splits) == 3 and splits[2] != 'ST':
+    elif len(splits) == 3 and splits[1] != 'ST':
         task = splits[0]
         state = splits[1]
         hier = splits[2]

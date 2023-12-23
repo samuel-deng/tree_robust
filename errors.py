@@ -39,13 +39,13 @@ def run_errors(args, dataset, models):
     groups_train = splits[4::2]
     groups_test = splits[5::2]
 
-    splits = train_test_split(*tuple([X_train, y_train] + groups_train),
+    split = train_test_split(*tuple([X_train, y_train] + groups_train),
                             test_size=0.5, random_state=args.random_state)
-    X_train = splits[0]
+    X_train = split[0]
+    y_train = split[2]
+    groups_train = split[4::2]
     X_val = splits[1]
-    y_train = splits[2]
     y_val = splits[3]
-    groups_train = splits[4::2]
     groups_val = splits[5::2]
 
     for model_name in models:

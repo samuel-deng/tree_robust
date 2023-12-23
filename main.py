@@ -55,12 +55,12 @@ DATASETS = [
 
 # For multiple state experiments
 STATE_DATASETS = [
-    'income_ST_r',
-    'income_ST_s',
-    'employment_ST_r',
-    'employment_ST_s',
-    'coverage_ST_r',
-    'coverage_ST_s'
+    'income_ST_race',
+    'income_ST_sex',
+    'employment_ST_race',
+    'employment_ST_sex',
+    'coverage_ST_race',
+    'coverage_ST_sex'
 ]
 
 # For single state experiments
