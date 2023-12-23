@@ -113,7 +113,8 @@ if __name__ == "__main__":
     parser.add_argument('--model', default=-1)
     parser.add_argument('--random_state', default=0, type=int)
     parser.add_argument('--n_cpus', default=2, type=int)
-    parser.add_argument('--hier', action='store_true', default=True)
+    parser.add_argument('--hier', action='store_true', default=False)
+    parser.add_argument('--states', action='store_true', default=False)
 
     args = parser.parse_args()
     args.agree = False
@@ -124,22 +125,17 @@ if __name__ == "__main__":
         models = [MODELS[int(args.model)]]
 
     # Hierarchical clustering experiments
-    if args.hier:
-        if args.dataset:
-            datasets = [args.dataset]
-        else:
-            datasets = []
-
-            # Hierarchical datasets for task/state/type
-            data_combos = itertools.product(HIER_TASKS, HIER_STATES, HIER_TYPES)
-            for task, state, hier in data_combos:
-                datasets.append(task + "_" + state + "_" + hier)
-
-            # Hierarchical datasets for region/state/sensitive
-            datasets = datasets + STATE_DATASETS 
-
-            # Hierarchical datasets for 
-
-    args.agree = False
+    datasets = []
+    if args.dataset:
+        datasets = [args.dataset]
+    elif args.hier:
+        # Hierarchical datasets for task/state/type
+        data_combos = itertools.product(HIER_TASKS, HIER_STATES, HIER_TYPES)
+        for task, state, hier in data_combos:
+            datasets.append(task + "_" + state + "_" + hier)
+    elif args.states:
+        datasets = STATE_DATASETS
+    else:
+        raise ValueError("Use the --dataset, --hier, or --states flag!")
     results = main(args, datasets, models)
     
