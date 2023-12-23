@@ -64,7 +64,7 @@ STATE_DATASETS = [
 ]
 
 # For single state experiments
-HIER_TYPES = ['rsa', 'ras', 'asr', 'ers', 'esr', 'res', 'rse']
+HIER_TYPES = ['rsa', 'ras', 'asr', 'ers', 'esr', 'res', 'ser']
 HIER_STATES = ['MA', 'CT', 'NY', 'PA', 'IL', 'OH', 'MO', 'MN', 'FL', 'GA',
                  'TN', 'AL', 'TX', 'LA', 'AZ', 'CO', 'CA', 'WA']
 HIER_TASKS = ['income', 'coverage', 'employment']
