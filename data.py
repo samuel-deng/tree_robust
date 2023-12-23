@@ -434,16 +434,21 @@ def preprocess_folktables(task, state, hier):
     else:
         raise ValueError("Task for folktables invalid!")
     
+    # get correct indices for each feature
+    sex_idx = feature_names.index('SEX')
+    sch_idx = feature_names.index('SCHL')
+    age_idx = feature_names.index('AGEP')
+    
     # Construct groups
-    sex = X[:, -2]
-    young = (X[:,0] < 35)
-    mid = np.logical_and(X[:,0] >= 35, X[:,0] < 60)
-    old = (X[:,0] >= 60)
+    sex = X[:, sex_idx]
+    young = (X[:,age_idx] < 35)
+    mid = np.logical_and(X[:,age_idx] >= 35, X[:,age_idx] < 60)
+    old = (X[:,age_idx] >= 60)
 
-    sch_lhs = X[:,2] <= 15
-    sch_hs = (X[:,2] > 15) & (X[:,2] < 20)
-    sch_col = (X[:,2] >= 20) & (X[:,2] < 22)
-    sch_adv = (X[:,2] >= 22)
+    sch_lhs = X[:,sch_idx] <= 15
+    sch_hs = (X[:,sch_idx] > 15) & (X[:,sch_idx] < 20)
+    sch_col = (X[:,sch_idx] >= 20) & (X[:,sch_idx] < 22)
+    sch_adv = (X[:,sch_idx] >= 22)
 
     # 12 groups (including ALL)
     ALL = [True] * y.shape[0]
