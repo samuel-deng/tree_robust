@@ -209,7 +209,7 @@ def run_errors_core(args, dataset, models):
     groups_val = splits[5::2]
 
     for model_name in models:
-        print("Fitting model={}".format(model_name))
+        #print("Fitting model={}".format(model_name))
         group_models = []
         for g, group_name in enumerate(dataset.group_names):
             n_g = np.sum(groups_train[g])
@@ -221,22 +221,22 @@ def run_errors_core(args, dataset, models):
             group_models.append(model)
 
         # Prepend
-        print("Fitting PREPEND model={}...".format(model_name))
+        #print("Fitting PREPEND model={}...".format(model_name))
         prepend_results = prepend(group_models, X_train, y_train, groups_train, 
                                   X_test, y_test, groups_test, 
                                   dataset.group_names)
         declist = prepend_results[0]
         declist_errs = prepend_results[1]
-        print("\tResulting decision list: {}".format(declist))
+        #print("\tResulting decision list: {}".format(declist))
 
         # Treepend
-        print("Fitting TREE model...")
+        #print("Fitting TREE model...")
         treepend_results = treepend(group_models, tree, X_val, y_val,
                                     groups_val, X_test, y_test, groups_test, dataset.group_names)
         tree_declist = treepend_results[0]
         dectree = treepend_results[1]
         tree_errs = treepend_results[2]
-        print("\tResulting decision list: {}".format(tree_declist))
+        #print("\tResulting decision list: {}".format(tree_declist))
             
         # Evaluate on each group
         results[model_name] = {}
