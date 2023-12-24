@@ -246,6 +246,7 @@ def run_errors_core(args, dataset, models):
                 results[model_name][g]['ERM_ALL'] = -1
                 results[model_name][g]['ERM_GROUP'] = -1
                 results[model_name][g]['PREPEND'] = -1
+                results[model_name][g]['TREE'] = -1
             else:
                 yg = y_test[groups_test[g]]
                 erm_pred = group_models[0].predict(X_test[groups_test[g]])
