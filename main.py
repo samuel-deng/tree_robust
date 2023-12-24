@@ -12,7 +12,7 @@ import torch
 import itertools
 
 from agreement import run_agreement, print_agreement
-from errors import run_errors
+from errors import run_errors, run_errors_trials
 
 from data import name_to_dataset
 
@@ -21,15 +21,15 @@ RESULTS_PATH = './results'
 # List of base models to use. Specific ones to use are passed as an argument.
 MODELS = [
     'LogisticRegression',
-    'SVMClassifier',
+    #'SVMClassifier',
     'DecisionTree2',
     'DecisionTree4',
     'DecisionTree8',
     'DecisionTree16',
-    'DecisionTree',
-    'RandomForest2',
-    'RandomForest4',
-    'RandomForest8',
+    #'DecisionTree',
+    #'RandomForest2',
+    #'RandomForest4',
+    #'RandomForest8',
     'RandomForest16',
     'RandomForest',
     'XGBoost',
@@ -100,8 +100,12 @@ def main(args, datasets, models):
             save_result(models, agree_results, 'agree/{}'.format(dataset_name))
         if args.errs:
             print("\n=== Errors on dataset: {} ===".format(dataset_name))
-            errs_results = run_errors(args, dataset, models)
-            save_result(models, errs_results, dataset_name)
+            if args.trials:
+                errs_results = run_errors_trials(args, dataset, models)
+                save_result(models, errs_results, dataset_name)
+            else:
+                errs_results = run_errors(args, dataset, models)
+                save_result(models, errs_results, dataset_name)
 
     return results
 
@@ -116,6 +120,7 @@ if __name__ == "__main__":
     parser.add_argument('--n_cpus', default=2, type=int)
     parser.add_argument('--hier', action='store_true', default=False)
     parser.add_argument('--states', action='store_true', default=False)
+    parser.add_argument('--trials', default=None, type=int)
 
     args = parser.parse_args()
     args.agree = False
