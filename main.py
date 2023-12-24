@@ -25,7 +25,7 @@ MODELS = [
     'DecisionTree2',
     'DecisionTree4',
     'DecisionTree8',
-    'DecisionTree16',
+    #'DecisionTree16',
     #'DecisionTree',
     #'RandomForest2',
     #'RandomForest4',
@@ -55,20 +55,27 @@ DATASETS = [
 
 # For multiple state experiments
 STATE_DATASETS = [
-    'income_ST_race',
-    'income_ST_sex',
-    'employment_ST_race',
-    'employment_ST_sex',
-    'coverage_ST_race',
-    'coverage_ST_sex'
+    'income_ST_raceST',
+    'income_ST_sexST',
+    'income_ST_ageST',
+    'employment_ST_raceST',
+    'employment_ST_sexST',
+    'employment_ST_ageST'
+    'coverage_ST_raceST',
+    'coverage_ST_sexST',
+    'coverage_ST_ageST'
 ]
 
 # For single state experiments
 HIER_TYPES = ['rsa', 'ras', 'asr', 'ers', 'esr', 'res', 'ser']
 #HIER_STATES = ['MA', 'CT', 'NY', 'PA', 'IL', 'OH', 'MO', 'MN', 'FL', 'GA',
 #                 'TN', 'AL', 'TX', 'LA', 'AZ', 'CO', 'CA', 'WA']
-HIER_STATES = ['NY', 'IL', 'FL', 'CA']
+#HIER_STATES = ['NY', 'IL', 'FL', 'CA']
+HIER_STATES = ['NY', 'CA']
 HIER_TASKS = ['income', 'coverage', 'employment']
+
+# For Adult experiments
+ADULT_DATASETS = ['adult_se', 'adult_sa', 'adult_ae', 'adult_re', 'adult_me']
 
 def save_result(models, results, path):
     """
@@ -118,9 +125,15 @@ if __name__ == "__main__":
     parser.add_argument('--model', default=-1)
     parser.add_argument('--random_state', default=0, type=int)
     parser.add_argument('--n_cpus', default=2, type=int)
+
+    # Experiment types
     parser.add_argument('--hier', action='store_true', default=False)
     parser.add_argument('--states', action='store_true', default=False)
-    parser.add_argument('--trials', default=None, type=int)
+    parser.add_argument('--adult', action='store_true', default=False)
+    parser.add_argument('--synthetic', action='store_true', default=False)
+
+    # For calculating standard error
+    parser.add_argument('--trials', default=10, type=int)
 
     args = parser.parse_args()
     args.agree = False
@@ -134,14 +147,18 @@ if __name__ == "__main__":
     datasets = []
     if args.dataset:
         datasets = [args.dataset]
+    elif args.adult:
+        datasets = ADULT_DATASETS
     elif args.hier:
         # Hierarchical datasets for task/state/type
         data_combos = itertools.product(HIER_TASKS, HIER_STATES, HIER_TYPES)
         for task, state, hier in data_combos:
             datasets.append(task + "_" + state + "_" + hier)
+        args.trials = 5
     elif args.states:
         datasets = STATE_DATASETS
+        args.trials = 5
     else:
-        raise ValueError("Use the --dataset, --hier, or --states flag!")
+        raise ValueError("Use the --dataset, --hier, --adult, or --states flag!")
     results = main(args, datasets, models)
     

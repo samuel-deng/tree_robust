@@ -15,7 +15,7 @@ def std_err_trials(trials):
     mean = np.mean(trials)
     sd = np.std(trials)
     n = len(trials)
-    return mean, (1.96 * sd)/np.sqrt(n)
+    return mean, (1.96 * sd)/np.sqrt(2 * n)
 
 warnings.simplefilter("ignore", category=ConvergenceWarning)
 def run_errors(args, dataset, models):
