@@ -75,7 +75,7 @@ HIER_STATES = ['NY', 'CA']
 HIER_TASKS = ['income', 'coverage', 'employment']
 
 # For Adult experiments
-ADULT_DATASETS = ['adult_se', 'adult_sa', 'adult_ae', 'adult_re', 'adult_me']
+ADULT_DATASETS = ['adult_se', 'adult_sa', 'adult_ae', 'adult_me']
 
 def save_result(models, results, path):
     """
