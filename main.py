@@ -66,12 +66,6 @@ STATE_DATASETS = [
     'coverage_ST_ageST'
 ]
 
-REMAINING_DATA = ['employment_CA_rsa', 'employment_CA_ras',
-                  'employment_CA_asr', 'employment_CA_ers', 'employment_CA_esr', 'employment_CA_res', 
-                  'employment_CA_ser', 'income_ST_ageST',
-                  'employment_ST_ageST', 'income_ST_raceST',
-                  'employment_ST_raceST']
-
 # For single state experiments
 HIER_TYPES = ['rsa', 'ras', 'asr', 'ers', 'esr', 'res', 'ser']
 #HIER_STATES = ['MA', 'CT', 'NY', 'PA', 'IL', 'OH', 'MO', 'MN', 'FL', 'GA',
@@ -164,7 +158,7 @@ if __name__ == "__main__":
         args.trials = 5
     elif args.states:
         #datasets = STATE_DATASETS
-        datasets = REMAINING_DATA
+        datasets = STATE_DATASETS
         args.trials = 5
     else:
         raise ValueError("Use the --dataset, --hier, --adult, or --states flag!")
