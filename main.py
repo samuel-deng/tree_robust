@@ -56,14 +56,14 @@ DATASETS = [
 # For multiple state experiments
 STATE_DATASETS = [
     #'income_ST_sexST',
-    'income_ST_ageST',
+    #'income_ST_ageST',
     #'employment_ST_sexST',
-    'employment_ST_ageST',
-    'income_ST_raceST',
-    'employment_ST_raceST',
-    #'coverage_ST_raceST',
-    #'coverage_ST_sexST',
-    #'coverage_ST_ageST'
+    #'employment_ST_ageST',
+    #'income_ST_raceST',
+    #'employment_ST_raceST',
+    'coverage_ST_raceST',
+    'coverage_ST_sexST',
+    'coverage_ST_ageST'
 ]
 
 REMAINING_DATA = ['employment_CA_rsa', 'employment_CA_ras',
