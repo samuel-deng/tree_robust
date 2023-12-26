@@ -55,12 +55,12 @@ DATASETS = [
 
 # For multiple state experiments
 STATE_DATASETS = [
-    #'income_ST_sexST',
-    #'income_ST_ageST',
-    #'employment_ST_sexST',
-    #'employment_ST_ageST',
-    #'income_ST_raceST',
-    #'employment_ST_raceST',
+    'income_ST_sexST',
+    'income_ST_ageST',
+    'employment_ST_sexST',
+    'employment_ST_ageST',
+    'income_ST_raceST',
+    'employment_ST_raceST',
     'coverage_ST_raceST',
     'coverage_ST_sexST',
     'coverage_ST_ageST'
@@ -71,7 +71,8 @@ HIER_TYPES = ['rsa', 'ras', 'asr', 'ers', 'esr', 'res', 'ser']
 #HIER_STATES = ['MA', 'CT', 'NY', 'PA', 'IL', 'OH', 'MO', 'MN', 'FL', 'GA',
 #                 'TN', 'AL', 'TX', 'LA', 'AZ', 'CO', 'CA', 'WA']
 #HIER_STATES = ['NY', 'IL', 'FL', 'CA']
-HIER_STATES = ['NY', 'CA']
+# HIER_STATES = ['NY', 'CA']
+HIER_STATES = ['FL']
 HIER_TASKS = ['income', 'coverage', 'employment']
 
 # For Adult experiments
