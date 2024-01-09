@@ -507,7 +507,7 @@ def preprocess_german(train_path='datasets/german/german.data'):
                       group_names, inter_names, trees)
     return dataset
 
-def preprocess_folktables(task, state, hier):
+def preprocess_folktables(task, state, hier, verbose=False):
     """
     Returns a Dataset object given a folktables task, state, and hierarchy of groups.
     """
@@ -573,6 +573,22 @@ def preprocess_folktables(task, state, hier):
     school_groups = [sch_lhs, sch_hs, sch_col, sch_adv]
     school_group_names = ["HS-", "HS", "COL", "COL+"]
 
+    # Get stats for each of the desired attributes
+    if verbose:
+        print("Total n={}".format(X.shape[0]))
+        print("=== Stats for Race Groups ===")
+        for i, group in enumerate(race_groups):
+            print("Group {}={}".format(race_group_names[i], np.sum(group)))
+        print("=== Stats for Sex Groups ===")
+        for i, group in enumerate(sex_groups):
+            print("Group {}={}".format(sex_group_names[i], np.sum(group)))
+        print("=== Stats for Age Groups ===")
+        for i, group in enumerate(age_groups):
+            print("Group {}={}".format(age_group_names[i], np.sum(group)))
+        print("=== Stats for Edu Groups ===")
+        for i, group in enumerate(school_groups):
+            print("Group {}={}".format(school_group_names[i], np.sum(group)))
+
     if hier == 'rsa':
         groups, group_names, tree = construct_hier([[ALL], race_groups,
                                                     sex_groups, age_groups],[["ALL"], race_group_names, sex_group_names,age_group_names])
@@ -594,6 +610,9 @@ def preprocess_folktables(task, state, hier):
     elif hier == "ser":
         groups, group_names, tree = construct_hier([[ALL], sex_groups,
                                                     school_groups, race_groups],[["ALL"], sex_group_names, school_group_names, race_group_names])
+    elif hier == 'rse':
+        groups, group_names, tree = construct_hier([[ALL], race_groups,
+                                                    sex_groups, school_groups],[["ALL"], race_group_names, sex_group_names, school_group_names])
     else:
         raise ValueError('hier must be specified!')
     
