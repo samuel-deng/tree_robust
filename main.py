@@ -67,12 +67,13 @@ STATE_DATASETS = [
 ]
 
 # For single state experiments
-HIER_TYPES = ['rsa', 'ras', 'asr', 'ers', 'esr', 'res', 'ser']
+#HIER_TYPES = ['rsa', 'ras', 'asr', 'ers', 'esr', 'res', 'ser']
+HIER_TYPES = ['rse']
 #HIER_STATES = ['MA', 'CT', 'NY', 'PA', 'IL', 'OH', 'MO', 'MN', 'FL', 'GA',
 #                 'TN', 'AL', 'TX', 'LA', 'AZ', 'CO', 'CA', 'WA']
 #HIER_STATES = ['NY', 'IL', 'FL', 'CA']
 # HIER_STATES = ['NY', 'CA']
-HIER_STATES = ['FL']
+HIER_STATES = ['NY', 'CA', 'FL']
 HIER_TASKS = ['income', 'coverage', 'employment']
 
 # For Adult experiments
