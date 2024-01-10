@@ -714,6 +714,14 @@ def preprocess_folkstates(task, sens, path='data/'):
         groups, group_names, tree = construct_hier([[ALL], state_groups,
                                                     sens_dict[sens][0]],
                                                     [["ALL"], state_names, sens_dict[sens][1]], skip_empty=True)
+    elif sens == 'srs':
+        groups, group_names, tree = construct_hier([[ALL], state_groups,
+                                                    race_groups, sex_groups],
+                                                    [["ALL"], state_names, race_group_names, sex_group_names], skip_empty=True)
+    elif sens == 'sra':
+        groups, group_names, tree = construct_hier([[ALL], state_groups,
+                                                    race_groups, age_groups],
+                                                    [["ALL"], state_names, race_group_names, age_group_names], skip_empty=True)
     else:
         raise ValueError("Invalid sens attribute={}".format(sens))
         

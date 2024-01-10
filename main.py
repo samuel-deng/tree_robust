@@ -54,6 +54,7 @@ DATASETS = [
     ]
 
 # For multiple state experiments
+'''
 STATE_DATASETS = [
     'income_ST_sexST',
     'income_ST_ageST',
@@ -65,6 +66,16 @@ STATE_DATASETS = [
     'coverage_ST_sexST',
     'coverage_ST_ageST'
 ]
+'''
+STATE_DATASETS = [
+    'income_ST_sra',
+    'income_ST_srs',
+    'employment_ST_sra',
+    'employment_ST_srs',
+    'coverage_ST_sra',
+    'coverage_ST_srs'
+]
+
 
 # For single state experiments
 #HIER_TYPES = ['rsa', 'ras', 'asr', 'ers', 'esr', 'res', 'ser']
